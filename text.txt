@@ -1,0 +1,148 @@
+## Ratio — وضعیت فعلی Setup
+
+تا اینجا زیرساخت اولیه پروژه Ratio را آماده کرده‌ایم:
+
+### 1. GitHub
+- Repository ساخته شده:
+  `pouyanRG/Ratio`
+- Repository ابتدا خالی بود و به همین دلیل Vercel خطای branch/commit می‌داد.
+- یک `README.md` با عنوان `# Ratio` ساخته و commit شده.
+- بنابراین repository الان حداقل یک commit روی `main` دارد.
+
+### 2. Vercel
+- پروژه GitHub به Vercel متصل شده.
+- Vercel Project:
+  `ratio`
+- Production URL:
+  `https://ratio-self.vercel.app/`
+- Initial deployment با موفقیت انجام شده.
+- بعد از اضافه‌کردن Environment Variables، Redeploy نیز با موفقیت انجام شده.
+
+### 3. Supabase
+- پروژه Supabase ساخته شده:
+  `Ratio`
+- Project URL:
+  `https://vmvrjadbvwtolvwnsclz.supabase.co`
+- Project ID:
+  `vmvrjadbvwtolvwnsclz`
+
+تنظیمات اولیه:
+- Data API: ON
+- Automatically expose new tables: OFF
+- Automatic RLS: ON
+- Email Auth: ON
+- User Signups: ON
+- Confirm Email: فعلاً OFF
+- Anonymous Sign-ins: OFF
+- Manual Linking: OFF
+
+### 4. Supabase API Keys
+دو key جدید ساخته شده:
+- Publishable API Key با نام `ratio`
+- Secret API Key با نام `ratio`
+
+Secret Key نباید در Frontend یا GitHub قرار بگیرد.
+
+### 5. Google OAuth
+Google Cloud Project ساخته شده:
+`Ratio`
+
+OAuth Web Client ساخته شده و تنظیم شده:
+- Authorized JavaScript origin:
+  `http://localhost:3000`
+- Supabase callback:
+  `https://vmvrjadbvwtolvwnsclz.supabase.co/auth/v1/callback`
+
+Google OAuth در Supabase نیز فعال و ذخیره شده.
+Google account کاربر نیز به عنوان Test User اضافه شده.
+
+### 6. Bunny Stream
+به‌جای Cloudflare R2 تصمیم گرفتیم برای ویدئو از Bunny Stream استفاده کنیم.
+
+Bunny Video Library ساخته شده:
+- Library Name:
+  `Ratio`
+- Library ID: یک ID شش‌رقمی است و نزد کاربر ذخیره شده.
+- Bunny API Key نیز پیدا و امن ذخیره شده و نباید در chat/GitHub/Frontend قرار بگیرد.
+- هنوز هیچ ویدئویی upload نشده.
+
+هدف Bunny:
+- Video Storage
+- Video Encoding/Transcoding
+- HLS
+- CDN
+- Video Delivery
+
+### 7. Cloudflare R2
+R2 را ادامه ندادیم، چون مرحله فعال‌سازی به Billing/Payment رسید و برای شرایط فعلی مناسب تشخیص داده نشد.
+
+بنابراین معماری فعلی:
+
+GitHub
+↓
+Vercel
+↓
+Supabase
+├── Auth
+├── PostgreSQL
+└── Video Metadata
+        ↓
+Bunny Stream
+├── Video Storage
+├── Encoding
+├── HLS
+└── CDN
+
+### 8. Vercel Environment Variables
+در Vercel این متغیرها را تنظیم کرده‌ایم:
+
+`NEXT_PUBLIC_SUPABASE_URL`
+=
+`https://vmvrjadbvwtolvwnsclz.supabase.co`
+
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+=
+Supabase Publishable Key
+
+همچنین Secret Key برای استفاده server-side در نظر گرفته شده و نباید در client/frontend استفاده شود.
+
+بعد از تنظیم Environment Variables، Vercel Redeploy شده و Deployment موفق بوده است.
+
+### وضعیت فعلی
+
+زیرساخت اولیه آماده است:
+
+✅ GitHub
+✅ Vercel
+✅ Supabase
+✅ Supabase Auth
+✅ Google OAuth
+✅ Bunny Stream
+✅ Bunny Video Library
+✅ Vercel Environment Variables
+✅ Vercel Deployment
+
+هنوز این بخش‌ها انجام نشده‌اند:
+
+⏳ Push کردن کد واقعی پروژه Ratio به GitHub
+⏳ ساخت UI/Frontend واقعی
+⏳ اتصال Frontend به Supabase Auth
+⏳ Database schema / migrations
+⏳ RLS policies
+⏳ اتصال امن Backend به Bunny API
+⏳ Video upload flow
+⏳ Video metadata
+⏳ HLS playback
+⏳ تست کامل Upload → Bunny → Playback
+⏳ VPS/FFmpeg Worker در صورت نیاز
+
+### نکته امنیتی مهم
+Bunny API Key و Supabase Secret Key را هرگز داخل:
+- Frontend
+- GitHub
+- public `.env`
+- client-side JavaScript
+
+قرار نده.
+
+این Secretها باید فقط server-side / secure environment variables استفاده شوند.
