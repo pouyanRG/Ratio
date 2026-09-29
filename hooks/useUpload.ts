@@ -51,10 +51,24 @@ function xhrUpload(url: string, file: Blob, onProgress: (p: number) => void) {
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300
-        ? resolve()
-        : reject(new Error(`upload failed: ${xhr.status}`));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+        return;
+      }
+
+      let message = xhr.responseText;
+      try {
+        const body = JSON.parse(xhr.responseText) as {
+          message?: string;
+          error?: string;
+        };
+        message = body.message ?? body.error ?? message;
+      } catch {
+        // Keep the response text when Storage does not return JSON.
+      }
+      reject(new Error(`upload failed: ${xhr.status}${message ? ` - ${message}` : ""}`));
+    };
     xhr.onerror = () => reject(new Error("upload failed: network error"));
     xhr.send(file);
   });
