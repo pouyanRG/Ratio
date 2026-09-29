@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { dosyaPresignRead, dosyaThumbKey } from "@/lib/dosya";
+import { createReadUrl, thumbnailStorageKey } from "@/lib/storage";
 
-// Returns short-lived signed URLs; media bytes are served directly from storage.
+// Returns short-lived signed URLs for files in the private storage bucket.
 export async function GET(
   _: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -21,8 +21,8 @@ export async function GET(
     return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const [videoUrl, thumbnailUrl] = await Promise.all([
-    dosyaPresignRead(video.storage_key),
-    dosyaPresignRead(dosyaThumbKey(video.id)).catch(() => null),
+    createReadUrl(video.storage_key),
+    createReadUrl(thumbnailStorageKey(video.id)).catch(() => null),
   ]);
 
   return NextResponse.json(

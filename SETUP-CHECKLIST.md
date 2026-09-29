@@ -10,7 +10,6 @@
 - [ ] اکانت **GitHub** (اگر نداری) — github.com
 - [ ] اکانت **Vercel** با «Continue with GitHub» — vercel.com (پلن Hobby رایگان کافی است)
 - [ ] اکانت **Supabase** با GitHub — supabase.com (پلن Free)
-- [ ] اکانت **Dosya.dev** برای فضای ذخیره‌سازی فایل‌ها
 - [ ] نصب روی سیستم: **Node.js LTS**، **Git**، یک ادیتور
 
 > هشدار مهم: Supabase پلن Free بعد از ~۱ هفته بی‌فعالیتی پروژه را **Pause** می‌کند.
@@ -70,16 +69,13 @@
 
 ---
 
-## فاز ۳ — Dosya.dev (ذخیره ویدیوها) — ~۲۰ دقیقه
+## فاز ۳ — Supabase Storage (ذخیره ویدیوها) — ~۱۰ دقیقه
 
-- [ ] در Dosya.dev یک workspace بساز و شناسهٔ آن را (با پیشوند `ws_`) بردار؛ شناسهٔ workspace همان bucket است.
-- [ ] از **Settings → API Keys → S3** یک S3 credential بساز و Access Key و Secret Key را بردار.
-- [ ] تنظیمات S3: endpoint برابر `https://api.dosya.dev/s3`، region برابر `us-east-1` و path-style فعال.
-- [ ] دسترسی کلید باید هم آپلود و هم خواندن/بررسی فایل را مجاز کند.
-- [ ] آپلود را از localhost و دامنهٔ Vercel آزمایش کن؛ درخواست PUT مرورگر باید توسط CORS سرویس پذیرفته شود.
+- [ ] bucket خصوصی `videos` را با اجرای migrationها در SQL Editor بساز؛ migration `0005_supabase_storage.sql` این کار را انجام می‌دهد.
+- [ ] در صورت نیاز نام bucket را در `SUPABASE_STORAGE_BUCKET` تنظیم کن؛ مقدار پیش‌فرض برنامه `videos` است.
+- [ ] bucket را public نکن؛ آپلود و پخش از URLهای امضاشده انجام می‌شود.
 
-**خروجی این فاز برای `.env`:** `DOSYA_ENDPOINT`، `DOSYA_REGION`، `DOSYA_BUCKET`، `DOSYA_ACCESS_KEY`، `DOSYA_SECRET_KEY`
-`DOSYA_API_KEY` کلید REST جداگانه است و در جریان فعلی S3 استفاده نمی‌شود.
+**خروجی این فاز برای `.env`:** فقط کلیدهای Supabase که در فاز ۱ دریافت شدند.
 
 ---
 
@@ -89,7 +85,7 @@
 - [ ] اتصال Git محلی: `git init` + remote آدرس ریپو (AI این را انجام می‌دهد، فقط ریپو را بساز)
 - [ ] **vercel.com → Add New → Project → Import** همان ریپو
 - [ ] قبل از Deploy، در بخش **Environment Variables** همه متغیرهای `.env` را وارد کن
-  (Supabase URL/Keys + Dosya S3 keys) — بعدا که worker آمد، به envهای Vercel اضافه می‌کنیم
+  (Supabase URL/Keys) — بعدا که worker آمد، متغیرهای لازم آن را اضافه می‌کنیم
 - [ ] Deploy → گرفتن دامنه (مثل `video-app-xxxx.vercel.app`)
 - [ ] برگرد به **Supabase** (URL Configuration) و **Google Console** (origins) و این دامنه را اضافه کن
 - [ ] بعد از deploy، آپلود مرورگر را روی origin دامنهٔ اصلی نیز آزمایش کن
@@ -108,9 +104,9 @@
 - [ ] اتصال اولیه و آپدیت: `ssh root@IP` → `apt update && apt upgrade`
 - [ ] نصب Docker: اسکریپت رسمی `curl -fsSL https://get.docker.com | sh`
 - [ ] فایل‌های worker (docker-compose و .env که AI نوشته) را با scp/گیت به سرور ببر
-- [ ] در env سرور این‌ها لازم است: کلیدهای Dosya S3 + Supabase URL + service_role key
+- [ ] در env سرور این‌ها لازم است: Supabase URL + secret key
 - [ ] `docker compose up -d` → لاگ بگیر: `docker compose logs -f` — باید ببینی worker آماده و منتظر است
-- [ ] یک ویدیوی تست آپلود کن و چک کن فایل در Dosya ذخیره و `status` به `ready` تغییر کند
+- [ ] یک ویدیوی تست آپلود کن و چک کن فایل در bucket خصوصی ذخیره و `status` به `ready` تغییر کند
 
 ---
 
@@ -130,10 +126,5 @@
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → API | فرانت + سرور |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Settings → API | فرانت + سرور |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API | فقط سرور (Vercel + VPS) |
-| `DOSYA_ENDPOINT` | مستندات S3 سرویس | فقط سرور |
-| `DOSYA_REGION` | `us-east-1` | فقط سرور |
-| `DOSYA_BUCKET` | شناسهٔ workspace | فقط سرور |
-| `DOSYA_ACCESS_KEY` | Dosya → Settings → API Keys → S3 | فقط سرور |
-| `DOSYA_SECRET_KEY` | Dosya → Settings → API Keys → S3 | فقط سرور |
-| `DOSYA_API_KEY` | Dosya → Settings → API Keys | فقط برای REST API |
+| `SUPABASE_STORAGE_BUCKET` | نام bucket در Supabase Storage | فقط سرور |
 | Google Client ID/Secret | Google Cloud Console | داخل خود Supabase وارد می‌شود |

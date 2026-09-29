@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { dosyaObjectExists } from "@/lib/dosya";
+import { storageObjectExists } from "@/lib/storage";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     .maybeSingle();
   if (!video) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  if (!(await dosyaObjectExists(video.storage_key)))
+  if (!(await storageObjectExists(video.storage_key)))
     return NextResponse.json({ error: "upload not found in storage" }, { status: 400 });
 
   // Only "authenticated" has update(caption) granted, so the status change

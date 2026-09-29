@@ -42,11 +42,14 @@ async function extractMeta(file: File) {
   }
 }
 
-function xhrUpload(url: string, file: Blob, contentType: string, onProgress: (p: number) => void) {
+function xhrUpload(url: string, file: Blob, onProgress: (p: number) => void) {
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url);
-    xhr.setRequestHeader("Content-Type", contentType);
+    const body = new FormData();
+    body.append("cacheControl", "3600");
+    body.append("", file);
+    xhr.open("POST", url);
+    xhr.setRequestHeader("x-upsert", "false");
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
@@ -55,7 +58,7 @@ function xhrUpload(url: string, file: Blob, contentType: string, onProgress: (p:
         ? resolve()
         : reject(new Error(`upload failed: ${xhr.status}`));
     xhr.onerror = () => reject(new Error("upload failed: network error"));
-    xhr.send(file);
+    xhr.send(body);
   });
 }
 
@@ -100,7 +103,7 @@ export function useUpload() {
       if (aborted.current) return;
       setVideoId(init.videoId);
 
-      await xhrUpload(init.uploadUrl, file, file.type || "video/mp4", setProgress);
+      await xhrUpload(init.uploadUrl, file, setProgress);
       if (aborted.current) return;
 
       setStatus("finalizing");
@@ -108,7 +111,7 @@ export function useUpload() {
 
       if (thumbnail) {
         try {
-          await xhrUpload(init.thumbUploadUrl, thumbnail, "image/jpeg", () => {});
+          await xhrUpload(init.thumbUploadUrl, thumbnail, () => {});
         } catch {
           // thumbnail is optional
         }
