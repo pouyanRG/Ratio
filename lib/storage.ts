@@ -11,14 +11,6 @@ export function thumbnailStorageKey(videoId: string) {
   return `videos/${videoId}/thumb.jpg`;
 }
 
-export async function createUploadUrl(path: string) {
-  const { data, error } = await createAdminClient()
-    .storage.from(VIDEO_BUCKET)
-    .createSignedUploadUrl(path);
-  if (error) throw error;
-  return data;
-}
-
 export async function createReadUrl(path: string) {
   const { data, error } = await createAdminClient()
     .storage.from(VIDEO_BUCKET)

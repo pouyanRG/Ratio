@@ -31,6 +31,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "video exceeds the 50 MB limit" }, { status: 413 });
   }
 
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profileError) {
+    return NextResponse.json({ error: "could not verify your profile" }, { status: 500 });
+  }
+  if (!profile) {
+    return NextResponse.json(
+      { error: "complete onboarding before uploading" },
+      { status: 409 }
+    );
+  }
+
   const videoId = randomUUID();
   const videoKey = videoStorageKey(videoId);
   const thumbKey = thumbnailStorageKey(videoId);

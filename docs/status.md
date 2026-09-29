@@ -1,6 +1,6 @@
-## Ratio — وضعیت فعلی
+# Ratio — وضعیت فعلی
 
-### زیرساخت
+## زیرساخت
 
 - GitHub repository: `pouyanRG/Ratio`
 - Vercel project: `ratio`؛ دامنهٔ ثبت‌شده: `https://ratio-self.vercel.app/`
@@ -8,13 +8,13 @@
 - آدرس Supabase: `https://vmvrjadbvwtolvwnsclz.supabase.co`
 - Google OAuth در Supabase تنظیم شده است؛ callback گوگل باید همان callback نمایش‌داده‌شده در تنظیمات Supabase باشد.
 
-### معماری فعلی کد
+## معماری فعلی کد
 
 Next.js روی Vercel از Supabase Auth، PostgreSQL و bucket خصوصی Supabase Storage استفاده می‌کند. آپلود مستقیم با signed URL و `PUT` انجام می‌شود؛ Bunny، HLS و VPS/FFmpeg worker در مسیر فعلی نیستند.
 
 فقط MP4 تا سقف 50 MiB پذیرفته می‌شود. bucket و API نیز نوع و حجم را محدود می‌کنند. پاکسازی ردیف‌های نیمه‌کاره با Vercel Cron روزانه انجام می‌شود و نیازمند `CRON_SECRET` در Vercel است.
 
-### نام متغیرهای محیطی
+## نام متغیرهای محیطی
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
@@ -24,8 +24,9 @@ Next.js روی Vercel از Supabase Auth، PostgreSQL و bucket خصوصی Supab
 
 مقادیر واقعی در `.env.local` و Vercel نگهداری شوند؛ secretها را در Git یا کد مرورگر قرار ندهید.
 
-### کارهای باقی‌مانده برای استقرار
+## کارهای باقی‌مانده برای استقرار
 
 - اجرای migrationهای `0001` تا `0008` به ترتیب روی پروژهٔ Supabase، به‌ویژه migrationهای تازهٔ محدودیت bucket و حذف ستون‌های Bunny.
 - افزودن `CRON_SECRET` به Environment Variables در Vercel و deploy مجدد.
-- تست end-to-end ورود، آپلود MP4 تا 50 MiB و دریافت URL پخش پس از اجرای migrationها.
+- ثبت `https://ratio-self.vercel.app/auth/callback` در Supabase Auth → URL Configuration → Redirect URLs.
+- تست end-to-end ورود، onboarding، آپلود MP4 تا 50 MiB، complete تکراری و دریافت URL پخش پس از اجرای migrationها.

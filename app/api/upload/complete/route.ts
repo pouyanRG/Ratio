@@ -17,12 +17,17 @@ export async function POST(req: Request) {
   // Ownership check via RLS (authenticated client).
   const { data: video } = await supabase
     .from("videos")
-    .select("id, storage_key")
+    .select("id, storage_key, status")
     .eq("id", body.videoId)
     .eq("user_id", user.id)
-    .eq("status", "processing")
     .maybeSingle();
   if (!video) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (video.status === "ready") {
+    return NextResponse.json({ status: "ready" });
+  }
+  if (video.status !== "processing") {
+    return NextResponse.json({ error: "upload is no longer active" }, { status: 409 });
+  }
 
   if (!(await storageObjectExists(video.storage_key)))
     return NextResponse.json({ error: "upload not found in storage" }, { status: 400 });
@@ -45,8 +50,20 @@ export async function POST(req: Request) {
 
   if (updateError)
     return NextResponse.json({ error: updateError.message }, { status: 400 });
-  if (!updatedVideo)
+  if (!updatedVideo) {
+    const { data: currentVideo, error: lookupError } = await supabase
+      .from("videos")
+      .select("status")
+      .eq("id", video.id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (lookupError)
+      return NextResponse.json({ error: lookupError.message }, { status: 500 });
+    if (currentVideo?.status === "ready") {
+      return NextResponse.json({ status: "ready" });
+    }
     return NextResponse.json({ error: "upload is no longer active" }, { status: 409 });
+  }
 
   return NextResponse.json({ status: "ready" });
 }
