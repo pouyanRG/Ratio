@@ -10,7 +10,7 @@
 - [ ] اکانت **GitHub** (اگر نداری) — github.com
 - [ ] اکانت **Vercel** با «Continue with GitHub» — vercel.com (پلن Hobby رایگان کافی است)
 - [ ] اکانت **Supabase** با GitHub — supabase.com (پلن Free)
-- [ ] اکانت **Cloudflare** — dash.cloudflare.com (پلن Free)
+- [ ] اکانت **Dosya.dev** برای فضای ذخیره‌سازی فایل‌ها
 - [ ] نصب روی سیستم: **Node.js LTS**، **Git**، یک ادیتور
 
 > هشدار مهم: Supabase پلن Free بعد از ~۱ هفته بی‌فعالیتی پروژه را **Pause** می‌کند.
@@ -70,36 +70,16 @@
 
 ---
 
-## فاز ۳ — Cloudflare R2 (ذخیره ویدیوها) — ~۲۰ دقیقه
+## فاز ۳ — Dosya.dev (ذخیره ویدیوها) — ~۲۰ دقیقه
 
-### فعال‌سازی و ساخت باکت
-- [ ] داشبورد Cloudflare → منوی چپ **R2 Object Storage** → دکمه **Purchase R2** (کارت نمی‌خواهد؛ ۱۰GB رایگان در ماه است، فقط باید فعالش کنی)
-- [ ] **Create bucket** → نام: `video-app-videos` → Region: خودکار / `WEUR`
-- [ ] یک باکت دوم برای آواتارها: `video-app-avatars` → در تنظیماتش **Public access** را روشن کن (آواتار public است)
+- [ ] در Dosya.dev یک workspace بساز و شناسهٔ آن را (با پیشوند `ws_`) بردار؛ شناسهٔ workspace همان bucket است.
+- [ ] از **Settings → API Keys → S3** یک S3 credential بساز و Access Key و Secret Key را بردار.
+- [ ] تنظیمات S3: endpoint برابر `https://api.dosya.dev/s3`، region برابر `us-east-1` و path-style فعال.
+- [ ] دسترسی کلید باید هم آپلود و هم خواندن/بررسی فایل را مجاز کند.
+- [ ] آپلود را از localhost و دامنهٔ Vercel آزمایش کن؛ درخواست PUT مرورگر باید توسط CORS سرویس پذیرفته شود.
 
-### تنظیمات باکت ویدیو (همیشه خصوصی!)
-- [ ] باکت `videos` → Settings → **CORS Policy** → این JSON (origin را بعدا با دامنه اصلی کامل کن):
-
-```json
-[
-  {
-    "AllowedOrigins": ["http://localhost:3000", "https://your-app.vercel.app"],
-    "AllowedMethods": ["PUT", "GET"],
-    "AllowedHeaders": ["*"],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3600
-  }
-]
-```
-
-### گرفتن کلیدهای S3
-- [ ] R2 → **Manage R2 API Tokens** → **Create API Token**
-  - Permissions: **Object Read & Write**
-  - Specify bucket(s): فقط `video-app-videos`
-- [ ] بردار: **Access Key ID**، **Secret Access Key**
-- [ ] از صفحه اصلی R2 (سایدبار): **Account ID** را هم بردار (برای endpoint)
-
-**خروجی این فاز برای `.env`:** `R2_ACCOUNT_ID`، `R2_ACCESS_KEY_ID`، `R2_SECRET_ACCESS_KEY`
+**خروجی این فاز برای `.env`:** `DOSYA_ENDPOINT`، `DOSYA_REGION`، `DOSYA_BUCKET`، `DOSYA_ACCESS_KEY`، `DOSYA_SECRET_KEY`
+`DOSYA_API_KEY` کلید REST جداگانه است و در جریان فعلی S3 استفاده نمی‌شود.
 
 ---
 
@@ -109,10 +89,10 @@
 - [ ] اتصال Git محلی: `git init` + remote آدرس ریپو (AI این را انجام می‌دهد، فقط ریپو را بساز)
 - [ ] **vercel.com → Add New → Project → Import** همان ریپو
 - [ ] قبل از Deploy، در بخش **Environment Variables** همه متغیرهای `.env` را وارد کن
-  (Supabase URL/Keys + R2 keys) — بعدا که worker آمد، به envهای Vercel اضافه می‌کنیم
+  (Supabase URL/Keys + Dosya S3 keys) — بعدا که worker آمد، به envهای Vercel اضافه می‌کنیم
 - [ ] Deploy → گرفتن دامنه (مثل `video-app-xxxx.vercel.app`)
 - [ ] برگرد به **Supabase** (URL Configuration) و **Google Console** (origins) و این دامنه را اضافه کن
-- [ ] در **Cloudflare R2 → CORS** هم origin دامنه اصلی را جایگزین/اضافه کن
+- [ ] بعد از deploy، آپلود مرورگر را روی origin دامنهٔ اصلی نیز آزمایش کن
 - [ ] در Vercel فعال کن: هر push به branch `main` → deploy خودکار (پیش‌فرض همین است)
 
 **خروجی این فاز:** سایت زنده + دامنه که همه‌جا باید ثبت شود.
@@ -128,9 +108,9 @@
 - [ ] اتصال اولیه و آپدیت: `ssh root@IP` → `apt update && apt upgrade`
 - [ ] نصب Docker: اسکریپت رسمی `curl -fsSL https://get.docker.com | sh`
 - [ ] فایل‌های worker (docker-compose و .env که AI نوشته) را با scp/گیت به سرور ببر
-- [ ] در env سرور این‌ها لازم است: کلیدهای R2 + Supabase URL + service_role key
+- [ ] در env سرور این‌ها لازم است: کلیدهای Dosya S3 + Supabase URL + service_role key
 - [ ] `docker compose up -d` → لاگ بگیر: `docker compose logs -f` — باید ببینی worker آماده و منتظر است
-- [ ] یک ویدیوی تست آپلود کن و چک کن در R2 پوشه HLS ساخته شود و `status` به `ready` تغییر کند
+- [ ] یک ویدیوی تست آپلود کن و چک کن فایل در Dosya ذخیره و `status` به `ready` تغییر کند
 
 ---
 
@@ -150,7 +130,10 @@
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → API | فرانت + سرور |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Settings → API | فرانت + سرور |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API | فقط سرور (Vercel + VPS) |
-| `R2_ACCOUNT_ID` | داشبورد R2 | فقط سرور |
-| `R2_ACCESS_KEY_ID` | R2 API Token | فقط سرور |
-| `R2_SECRET_ACCESS_KEY` | R2 API Token | فقط سرور |
+| `DOSYA_ENDPOINT` | مستندات S3 سرویس | فقط سرور |
+| `DOSYA_REGION` | `us-east-1` | فقط سرور |
+| `DOSYA_BUCKET` | شناسهٔ workspace | فقط سرور |
+| `DOSYA_ACCESS_KEY` | Dosya → Settings → API Keys → S3 | فقط سرور |
+| `DOSYA_SECRET_KEY` | Dosya → Settings → API Keys → S3 | فقط سرور |
+| `DOSYA_API_KEY` | Dosya → Settings → API Keys | فقط برای REST API |
 | Google Client ID/Secret | Google Cloud Console | داخل خود Supabase وارد می‌شود |

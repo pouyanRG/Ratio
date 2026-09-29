@@ -57,7 +57,7 @@ Google OAuth در Supabase نیز فعال و ذخیره شده.
 Google account کاربر نیز به عنوان Test User اضافه شده.
 
 ### 6. Bunny Stream
-به‌جای Cloudflare R2 تصمیم گرفتیم برای ویدئو از Bunny Stream استفاده کنیم.
+در آن مقطع برای ویدئو Bunny Stream در نظر گرفته شد.
 
 Bunny Video Library ساخته شده:
 - Library Name:
@@ -73,8 +73,8 @@ Bunny Video Library ساخته شده:
 - CDN
 - Video Delivery
 
-### 7. Cloudflare R2
-R2 را ادامه ندادیم، چون مرحله فعال‌سازی به Billing/Payment رسید و برای شرایط فعلی مناسب تشخیص داده نشد.
+### 7. Dosya.dev Storage
+ذخیره‌سازی فایل‌ها با S3-compatible API سرویس Dosya.dev انجام می‌شود. کلیدهای S3 جدا از کلید REST API هستند.
 
 بنابراین معماری فعلی:
 
@@ -87,11 +87,9 @@ Supabase
 ├── PostgreSQL
 └── Video Metadata
         ↓
-Bunny Stream
-├── Video Storage
-├── Encoding
-├── HLS
-└── CDN
+      Dosya.dev
+      ├── Video Storage
+      └── Signed Upload / Playback URLs
 
 ### 8. Vercel Environment Variables
 در Vercel این متغیرها را تنظیم کرده‌ایم:
@@ -117,8 +115,7 @@ Supabase Publishable Key
 ✅ Supabase
 ✅ Supabase Auth
 ✅ Google OAuth
-✅ Bunny Stream
-✅ Bunny Video Library
+✅ Dosya.dev S3 credentials
 ✅ Vercel Environment Variables
 ✅ Vercel Deployment
 
@@ -129,7 +126,7 @@ Supabase Publishable Key
 ⏳ اتصال Frontend به Supabase Auth
 ⏳ Database schema / migrations
 ⏳ RLS policies
-⏳ اتصال امن Backend به Bunny API
+⏳ اتصال امن Backend به Dosya.dev S3
 ⏳ Video upload flow
 ⏳ Video metadata
 ⏳ HLS playback

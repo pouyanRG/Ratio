@@ -1,6 +1,8 @@
 # معماری کامل پروژه — شبکه اجتماعی ویدیویی (مثل اینستاگرام)
 
-Stack: **Next.js (App Router) + React + CSS Modules + Supabase (Postgres/Auth) + Cloudflare R2 + Worker ترنسکد (FFmpeg)**
+Stack: **Next.js (App Router) + React + CSS Modules + Supabase (Postgres/Auth) + Dosya.dev S3-compatible storage**
+
+> **وضعیت فعلی:** ویدیو در Dosya.dev با S3-compatible API ذخیره می‌شود و پخش با `<video>` بومی و URL امضاشده است. فایل از مرورگر مستقیم به storage می‌رود؛ بایت‌های ویدیو از Vercel عبور نمی‌کنند. ترنسکد/HLS فعلاً غیرفعال است.
 
 ---
 
@@ -15,10 +17,10 @@ Stack: **Next.js (App Router) + React + CSS Modules + Supabase (Postgres/Auth) +
               لینک‌ها/دیتا │           │ Presigned URL
                            ▼           ▼
               ┌────────────────┐   ┌────────────────────┐
-              │    Supabase    │   │   Cloudflare R2    │◀── آپلود مستقیم
+              │    Supabase    │   │     Dosya.dev     │◀── آپلود مستقیم
               │ ────────────── │   │  (فایل‌های ویدیو)  │    کاربر (بدون Vercel)
               │ PostgreSQL     │   └─────────┬──────────┘
-              │ Auth           │             │ R2 Event / polling
+              │ Auth           │             │ Storage API
               │ Realtime (کامنت/لایک)        ▼
               └────────────────┘   ┌────────────────────┐
                                    │  Transcoder Worker │
@@ -27,7 +29,7 @@ Stack: **Next.js (App Router) + React + CSS Modules + Supabase (Postgres/Auth) +
                                    └─────────┬──────────┘
                                              │ آپلود خروجی HLS
                                              ▼
-                                          Cloudflare R2
+                                          Dosya.dev
 ```
 
 **اصل طلایی:** Vercel فقط «هماهنگ‌کننده» است. هیچ بایت ویدیویی از Vercel رد نمی‌شود.
@@ -87,7 +89,7 @@ video-app/
 │   │   ├── client.ts              # کلاینت مرورگر
 │   │   ├── server.ts              # کلاینت سمت سرور (با کوکی)
 │   │   └── middleware.ts          # رفرش توکن + محافظت از مسیرها
-│   ├── r2.ts                      # ساخت Presigned URL (فقط سمت سرور)
+│   ├── dosya.ts                   # ساخت Presigned URL (فقط سمت سرور)
 │   ├── queries.ts                 # کوئری‌های پرکاربرد دیتابیس
 │   └── utils.ts
 ├── hooks/
@@ -164,20 +166,17 @@ VideoPlayer (Client Component)
 
 ```
 1. کلاینت → POST /api/upload-url {size, contentType, type}
-   سرور: احراز هویت + چک سقف حجم → createMultipartUpload روی R2
-   ← برمی‌گرداند: { uploadId, key, partUrls: [...], partSize: 64MB }
+  سرور: احراز هویت + ساخت کلید فایل و URL امضاشده از Dosya.dev
+  ← برمی‌گرداند: { videoId, uploadUrl, thumbUploadUrl }
 
-2. کلاینت: فایل را chunk-chunk با PUT مستقیم به R2 می‌فرستد
-   (رویداد progress واقعی → نوار پیشرفت؛ قابل retry برای هر part)
+2. کلاینت: فایل را با PUT مستقیم به Dosya.dev می‌فرستد
+  (رویداد progress واقعی → نوار پیشرفت)
 
-3. کلاینت → POST /api/upload-complete {uploadId, key, parts, title, type, caption}
-   سرور: completeMultipartUpload در R2 + INSERT در videos با status='processing'
-   + استخراج چند فریم thumbnail در worker
+3. کلاینت → POST /api/upload/complete {videoId, duration}
+  سرور: بررسی وجود فایل در Dosya.dev + تغییر status به 'ready'
 
-4. Worker (روی VPS): دانلود اورجینال → FFmpeg → HLS چندکیفیتی
-   (480p/720p/1080p، سگمنت‌های ۴ ثانیه‌ای) → آپلود به R2
-   + استخراج thumbnail + خواندن duration
-   → UPDATE videos SET status='ready', hls_path=..., thumbnail=..., duration=...
+4. کلاینت پیش از اتمام آپلود duration و thumbnail را استخراج می‌کند؛ thumbnail نیز
+  جداگانه با URL امضاشده به Dosya.dev ارسال می‌شود.
 
 5. کلاینت صفحه آپلود: هر ۳ ثانیه GET /api/videos/[id] → وقتی ready شد، تمام
 ```
@@ -200,7 +199,7 @@ videos (
   id uuid PK DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL → profiles(id),
   type text CHECK (type IN ('reel','long','story')),
-  r2_key text NOT NULL,              -- اورجینال
+  storage_key text NOT NULL,         -- کلید فایل اصلی در Dosya.dev
   hls_path text,                     -- مسیر master.m3u8 پس از پردازش
   thumbnail_url text,  duration_seconds int,
   caption text,  status text DEFAULT 'processing' CHECK (status IN ('processing','ready','failed')),
@@ -236,7 +235,7 @@ comments (
 stories (
   id uuid PK DEFAULT gen_random_uuid(),
   user_id uuid → profiles(id),
-  r2_key text NOT NULL,  media_type text CHECK (media_type IN ('image','video')),
+  storage_key text NOT NULL,  media_type text CHECK (media_type IN ('image','video')),
   hls_path text,  duration_seconds int,
   expires_at timestamptz NOT NULL DEFAULT now() + interval '24 hours',
   created_at timestamptz DEFAULT now()
@@ -268,7 +267,7 @@ story_views (
 - `@supabase/ssr` + middleware در `lib/supabase/middleware.ts` — رفرش خودکار توکن روی هر درخواست
 - **مسیرهای محافظت‌شده** (در middleware): `/upload`، `/settings` → ریدایرکت به `/login?next=...`
 - **جریان ثبت‌نام**: signup → تایید ایمیل → صفحه تکمیل پروفایل (username یکتا + نام + آواتار) → ورود به فید. تا وقتی پروفایل کامل نشده، بقیه سایت قفل است.
-- آواتار در Supabase Storage ذخیره می‌شود (public bucket، سقف ۲MB) — لازم نیست بذر R2 برود.
+- آواتار در Supabase Storage ذخیره می‌شود (public bucket، سقف ۲MB).
 
 ---
 
@@ -308,7 +307,7 @@ story_views (
 ## ۱۰. Transcoder Worker (جدا از Next.js)
 
 - یک repo/سرویس جداگانه، Node.js + Docker روی VPS ارزان (Hetzner CX22 مثلا)
-- منطق: حلقه‌ای که رکوردهای `status='processing'` را از Supabase برمی‌دارد → دانلود اورجینال از R2 → FFmpeg (HLS سه‌کیفیتی + thumbnail) → آپلود خروجی → آپدیت رکورد به `ready`
+- منطق آینده: حلقه‌ای که رکوردهای `status='processing'` را از Supabase برمی‌دارد → دانلود فایل از Dosya.dev → FFmpeg (HLS سه‌کیفیتی + thumbnail) → آپلود خروجی → آپدیت رکورد به `ready`
 - راه‌اندازی با `docker compose up` — شامل FFmpeg image
 - آینده: شکست‌ها → `status='failed'` + رکورد خطا برای retry
 
