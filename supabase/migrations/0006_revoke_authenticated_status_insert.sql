@@ -1,0 +1,1 @@
+revoke insert (status) on table public.videos from authenticated;

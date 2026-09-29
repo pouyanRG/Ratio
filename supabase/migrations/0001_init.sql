@@ -17,13 +17,11 @@ create policy "profiles_insert_own" on public.profiles for insert to authenticat
 create policy "profiles_update_own" on public.profiles for update to authenticated
   using (auth.uid() = id) with check (auth.uid() = id);
 
--- VIDEOS (Bunny Stream)
+-- VIDEOS (Supabase Storage)
 create table public.videos (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   type text not null check (type in ('reel','long','story')),
-  bunny_video_id uuid unique,
-  thumbnail_url text,
   duration_seconds int,
   caption text,
   status text not null default 'processing'
@@ -35,7 +33,7 @@ create index on public.videos (user_id, created_at desc);
 create index on public.videos (status);
 alter table public.videos enable row level security;
 grant select on public.videos to anon, authenticated;
-grant insert (user_id, type, bunny_video_id, caption) on public.videos to authenticated;
+grant insert (user_id, type, caption) on public.videos to authenticated;
 grant update (caption) on public.videos to authenticated;
 
 create policy "videos_select" on public.videos for select

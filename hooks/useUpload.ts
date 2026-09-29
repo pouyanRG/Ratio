@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { getVideoFileError } from "@/lib/upload-constraints";
 
 type Status = "idle" | "uploading" | "finalizing" | "ready" | "failed";
 
@@ -45,10 +46,7 @@ async function extractMeta(file: File) {
 function xhrUpload(url: string, file: Blob, onProgress: (p: number) => void) {
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    const body = new FormData();
-    body.append("cacheControl", "3600");
-    body.append("", file);
-    xhr.open("POST", url);
+    xhr.open("PUT", url);
     xhr.setRequestHeader("x-upsert", "false");
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
@@ -58,7 +56,7 @@ function xhrUpload(url: string, file: Blob, onProgress: (p: number) => void) {
         ? resolve()
         : reject(new Error(`upload failed: ${xhr.status}`));
     xhr.onerror = () => reject(new Error("upload failed: network error"));
-    xhr.send(body);
+    xhr.send(file);
   });
 }
 
@@ -82,13 +80,21 @@ export function useUpload() {
   ) {
     setError("");
     setProgress(0);
+
+    const validationError = getVideoFileError(file);
+    if (validationError) {
+      setStatus("failed");
+      setError(validationError);
+      return;
+    }
+
     setStatus("uploading");
 
     try {
       const initRes = await fetch("/api/upload/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...opts, contentType: file.type }),
+        body: JSON.stringify({ ...opts, contentType: file.type, size: file.size }),
       });
       if (!initRes.ok) {
         throw new Error(

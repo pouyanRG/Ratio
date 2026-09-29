@@ -20,6 +20,7 @@ export async function POST(req: Request) {
     .select("id, storage_key")
     .eq("id", body.videoId)
     .eq("user_id", user.id)
+    .eq("status", "processing")
     .maybeSingle();
   if (!video) return NextResponse.json({ error: "not found" }, { status: 404 });
 
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
 
   // Only "authenticated" has update(caption) granted, so the status change
   // goes through the service_role admin client.
-  const { error: updateError } = await createAdminClient()
+  const { data: updatedVideo, error: updateError } = await createAdminClient()
     .from("videos")
     .update({
       status: "ready",
@@ -37,10 +38,15 @@ export async function POST(req: Request) {
           ? Math.round(body.duration as number)
           : null,
     })
-    .eq("id", video.id);
+    .eq("id", video.id)
+    .eq("status", "processing")
+    .select("id")
+    .maybeSingle();
 
   if (updateError)
     return NextResponse.json({ error: updateError.message }, { status: 400 });
+  if (!updatedVideo)
+    return NextResponse.json({ error: "upload is no longer active" }, { status: 409 });
 
   return NextResponse.json({ status: "ready" });
 }
