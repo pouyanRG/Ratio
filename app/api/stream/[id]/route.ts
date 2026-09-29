@@ -4,7 +4,7 @@ import { createReadUrl, thumbnailStorageKey } from "@/lib/storage";
 
 // Returns short-lived signed URLs for files in the private storage bucket.
 export async function GET(
-  _: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -23,7 +23,8 @@ export async function GET(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (user) {
+  const isRefresh = new URL(request.url).searchParams.get("refresh") === "1";
+  if (user && !isRefresh) {
     const { error } = await supabase.rpc("record_video_view", {
       p_video_id: video.id,
     });

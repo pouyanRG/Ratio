@@ -5,6 +5,9 @@ import { thumbnailStorageKey, VIDEO_BUCKET } from "@/lib/storage";
 const MAX_ROWS_PER_RUN = 100;
 const STALE_AFTER_HOURS = 48;
 const MAX_ORPHAN_FOLDERS_PER_RUN = 25;
+const ORPHAN_PAGE_SIZE = 1000;
+const MAX_ORPHAN_PAGES = 5;
+const VIDEO_ID_BATCH_SIZE = 200;
 const VIDEO_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function GET(request: Request) {
@@ -88,24 +91,37 @@ export async function GET(request: Request) {
     deletedCount = deletedVideos?.length ?? 0;
   }
 
-  const { data: folders, error: listError } = await storage.list("videos", {
-    limit: 1000,
-  });
-  if (listError) {
-    return NextResponse.json({ error: listError.message }, { status: 502 });
+  const folderIds: string[] = [];
+  for (let page = 0; page < MAX_ORPHAN_PAGES; page += 1) {
+    const { data: folders, error: listError } = await storage.list("videos", {
+      limit: ORPHAN_PAGE_SIZE,
+      offset: page * ORPHAN_PAGE_SIZE,
+    });
+    if (listError) {
+      return NextResponse.json({ error: listError.message }, { status: 502 });
+    }
+    const batch = folders ?? [];
+    folderIds.push(
+      ...batch
+        .filter((item) => item.id === null && VIDEO_ID_PATTERN.test(item.name))
+        .map((item) => item.name)
+    );
+    if (batch.length < ORPHAN_PAGE_SIZE) break;
   }
 
-  const folderIds = (folders ?? [])
-    .filter((item) => item.id === null && VIDEO_ID_PATTERN.test(item.name))
-    .map((item) => item.name);
-  const { data: existingVideos, error: lookupError } = folderIds.length
-    ? await admin.from("videos").select("id").in("id", folderIds)
-    : { data: [], error: null };
-  if (lookupError) {
-    return NextResponse.json({ error: lookupError.message }, { status: 500 });
+  const existingIds = new Set<string>();
+  for (let index = 0; index < folderIds.length; index += VIDEO_ID_BATCH_SIZE) {
+    const idBatch = folderIds.slice(index, index + VIDEO_ID_BATCH_SIZE);
+    const { data: existingVideos, error: lookupError } = await admin
+      .from("videos")
+      .select("id")
+      .in("id", idBatch);
+    if (lookupError) {
+      return NextResponse.json({ error: lookupError.message }, { status: 500 });
+    }
+    for (const video of existingVideos ?? []) existingIds.add(video.id);
   }
 
-  const existingIds = new Set((existingVideos ?? []).map((video) => video.id));
   const orphanIds = folderIds
     .filter((id) => !existingIds.has(id))
     .slice(0, MAX_ORPHAN_FOLDERS_PER_RUN);

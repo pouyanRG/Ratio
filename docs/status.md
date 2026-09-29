@@ -12,7 +12,9 @@
 
 Next.js روی Vercel از Supabase Auth، PostgreSQL و bucket خصوصی Supabase Storage استفاده می‌کند. آپلود مستقیم با signed URL و `PUT` انجام می‌شود؛ Bunny، HLS و VPS/FFmpeg worker در مسیر فعلی نیستند.
 
-فقط MP4 تا سقف 50 MiB پذیرفته می‌شود. API اندازهٔ واقعی و امضای فایل را چک می‌کند و duration اعلام‌شده از مرورگر را ذخیره نمی‌کند. سهمیه‌ها: ۲ آپلود فعال، ۱۰ شروع در ۲۴ ساعت، 500 MiB برای هر کاربر و 900 MiB برای کل پروژه. پاکسازی ردیف و فایل‌های یتیم با Vercel Cron روزانه و `CRON_SECRET` انجام می‌شود.
+فقط MP4 تا سقف 50 MiB پذیرفته می‌شود. سرور اندازه، امضای فایل و duration را از `moov/mvhd` می‌خواند؛ تا ۹۰ ثانیه نوع `reel` و بالاتر از آن `long` می‌شود. سهمیه‌ها: ۲ آپلود فعال، ۱۰ شروع در ۲۴ ساعت، 500 MiB برای هر کاربر و 900 MiB برای کل پروژه. پاکسازی ردیف و فایل‌های یتیم با Vercel Cron روزانه و `CRON_SECRET` انجام می‌شود.
+
+فاز ۳ در کد پیاده شده: feed cursorدار و thumbnail signing دسته‌ای، گرید صفحهٔ اصلی، ریلز snap عمودی با player فعالِ viewport، صفحهٔ `/v/[id]`، Navbar مشترک، حذف ویدیو، ثبت view یکتا در روز و تمدید signed URL پیش از پایان اعتبار.
 
 ## نام متغیرهای محیطی
 
@@ -26,9 +28,8 @@ Next.js روی Vercel از Supabase Auth، PostgreSQL و bucket خصوصی Supab
 
 ## کارهای باقی‌مانده برای استقرار
 
-- اجرای migrationهای `0001` تا `0010` به ترتیب روی پروژهٔ Supabase. Migration `0010` اگر ردیف Story موجود باشد، برای جلوگیری از تغییر داده متوقف می‌شود.
+- اجرای migrationهای `0001` تا `0011` به ترتیب روی پروژهٔ Supabase. Migration `0010` اگر ردیف Story موجود باشد، برای جلوگیری از تغییر داده متوقف می‌شود.
 - افزودن `CRON_SECRET` به Environment Variables در Vercel و deploy مجدد.
 - ثبت `https://ratio-self.vercel.app/auth/callback` در Supabase Auth → URL Configuration → Redirect URLs.
-- ثبت `https://ratio-self.vercel.app/auth/callback` در Supabase Auth → URL Configuration → Redirect URLs.
-- تست end-to-end ورود، onboarding، آپلود MP4 تا 50 MiB، complete تکراری و دریافت URL پخش پس از اجرای migrationها.
-- اجرای پلیر و تمدید خودکار signed URL یک‌ساعته هنوز به فاز ۳ موکول است؛ فعلاً هر درخواست جدید به stream URL تازه می‌گیرد.
+- ثبت `CRON_SECRET` در Vercel، اجرای migrationها و تست end-to-end ورود، onboarding، آپلود، feed و stream هنوز روی deploy زنده تأیید نشده است.
+- تمدید خودکار signed URL از دقیقهٔ ۵۵ انجام می‌شود و refresh آن view تکراری نمی‌سازد.

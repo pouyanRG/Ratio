@@ -26,6 +26,19 @@ export async function DELETE(
   if (!video) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const admin = createAdminClient();
+  const { data: claimed, error: claimError } = await admin
+    .from("videos")
+    .update({ status: "failed" })
+    .eq("id", video.id)
+    .eq("user_id", user.id)
+    .eq("status", "ready")
+    .select("id")
+    .maybeSingle();
+  if (claimError)
+    return NextResponse.json({ error: "could not delete video" }, { status: 500 });
+  if (!claimed)
+    return NextResponse.json({ error: "video is no longer available" }, { status: 409 });
+
   const { error: storageError } = await admin.storage.from(VIDEO_BUCKET).remove([
     video.storage_key,
     thumbnailStorageKey(video.id),
@@ -33,18 +46,13 @@ export async function DELETE(
   if (storageError)
     return NextResponse.json({ error: "could not delete video files" }, { status: 502 });
 
-  const { data: deletedVideo, error: deleteError } = await admin
+  const { error: deleteError } = await admin
     .from("videos")
     .delete()
     .eq("id", video.id)
-    .eq("user_id", user.id)
-    .eq("status", "ready")
-    .select("id")
-    .maybeSingle();
+    .eq("status", "failed");
   if (deleteError)
     return NextResponse.json({ error: "could not delete video record" }, { status: 500 });
-  if (!deletedVideo)
-    return NextResponse.json({ error: "video is no longer available" }, { status: 409 });
 
   return new NextResponse(null, { status: 204 });
 }

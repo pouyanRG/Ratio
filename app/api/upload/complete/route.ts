@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { storageObjectIsMp4 } from "@/lib/storage";
+import { readStorageMp4Metadata } from "@/lib/storage";
 import { MAX_VIDEO_SIZE_BYTES } from "@/lib/upload-constraints";
 
 export async function POST(req: Request) {
@@ -42,14 +42,17 @@ export async function POST(req: Request) {
   ) {
     return NextResponse.json({ error: "uploaded file exceeds storage limits" }, { status: 413 });
   }
-  let validMp4: boolean;
+  let mediaMetadata: { durationSeconds: number } | null;
   try {
-    validMp4 = await storageObjectIsMp4(video.storage_key);
+    mediaMetadata = await readStorageMp4Metadata(video.storage_key, objectInfo.size);
   } catch {
     return NextResponse.json({ error: "could not verify uploaded file" }, { status: 502 });
   }
-  if (!validMp4) {
-    return NextResponse.json({ error: "uploaded file is not a valid MP4" }, { status: 415 });
+  if (!mediaMetadata) {
+    return NextResponse.json(
+      { error: "uploaded file is not a valid MP4 or has no duration metadata" },
+      { status: 415 }
+    );
   }
 
   // Only "authenticated" has update(caption) granted, so the status change
@@ -58,7 +61,8 @@ export async function POST(req: Request) {
     .from("videos")
     .update({
       status: "ready",
-      duration_seconds: null,
+      type: mediaMetadata.durationSeconds <= 90 ? "reel" : "long",
+      duration_seconds: Math.round(mediaMetadata.durationSeconds),
       file_size_bytes: objectInfo.size,
     })
     .eq("id", video.id)

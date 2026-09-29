@@ -17,10 +17,7 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const { type, caption, contentType, size } = await req.json();
-  if (!["reel", "long"].includes(type)) {
-    return NextResponse.json({ error: "invalid type" }, { status: 400 });
-  }
+  const { caption, contentType, size } = await req.json();
   if (contentType !== VIDEO_CONTENT_TYPE) {
     return NextResponse.json({ error: "only MP4 videos are allowed" }, { status: 415 });
   }
@@ -31,21 +28,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "video exceeds the 50 MB limit" }, { status: 413 });
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (profileError) {
-    return NextResponse.json({ error: "could not verify your profile" }, { status: 500 });
-  }
-  if (!profile) {
-    return NextResponse.json(
-      { error: "complete onboarding before uploading" },
-      { status: 409 }
-    );
-  }
-
   const videoId = randomUUID();
   const videoKey = videoStorageKey(videoId);
   const thumbKey = thumbnailStorageKey(videoId);
@@ -54,7 +36,7 @@ export async function POST(req: Request) {
     "reserve_video_upload",
     {
       p_video_id: videoId,
-      p_type: type,
+      p_type: "long",
       p_storage_key: videoKey,
       p_caption: caption ? String(caption).slice(0, 2200) : null,
     }

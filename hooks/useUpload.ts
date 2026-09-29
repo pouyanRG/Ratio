@@ -76,7 +76,7 @@ export function useUpload() {
 
   async function start(
     file: File,
-    opts: { type: "reel" | "long"; caption: string }
+    opts: { caption: string }
   ) {
     setError("");
     setProgress(0);
@@ -94,7 +94,12 @@ export function useUpload() {
       const initRes = await fetch("/api/upload/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...opts, contentType: file.type, size: file.size }),
+        body: JSON.stringify({
+          ...opts,
+          type: "long",
+          contentType: file.type,
+          size: file.size,
+        }),
       });
       if (!initRes.ok) {
         throw new Error(

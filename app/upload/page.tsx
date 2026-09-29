@@ -11,7 +11,6 @@ export default function UploadPage() {
   const { start, progress, status, error, videoId } = useUpload();
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [type, setType] = useState<"reel" | "long">("reel");
   const [caption, setCaption] = useState("");
 
   return (
@@ -32,15 +31,8 @@ export default function UploadPage() {
         }}
       />
       <p className="text-sm text-zinc-500">فقط MP4، حداکثر ۵۰ مگابایت</p>
+      <p className="text-sm text-zinc-500">ویدیوهای حداکثر ۹۰ ثانیه به‌صورت ریلز منتشر می‌شوند.</p>
       {fileError && <p role="alert" className="text-sm text-red-600">{fileError}</p>}
-      <select
-        className="rounded border border-zinc-300 bg-transparent p-3"
-        value={type}
-        onChange={(e) => setType(e.target.value as "reel" | "long")}
-      >
-        <option value="reel">ریلز</option>
-        <option value="long">ویدیوی بلند</option>
-      </select>
       <textarea
         className="min-h-28 rounded border border-zinc-300 bg-transparent p-3"
         placeholder="کپشن"
@@ -50,7 +42,7 @@ export default function UploadPage() {
       <button
         className="rounded bg-zinc-900 px-4 py-3 text-white disabled:opacity-50 dark:bg-white dark:text-black"
         disabled={!file || !!fileError || status === "uploading" || status === "finalizing"}
-        onClick={() => file && start(file, { type, caption })}
+        onClick={() => file && start(file, { caption })}
       >
         شروع آپلود
       </button>
