@@ -26,7 +26,7 @@
 - [ ] Repository را به Vercel متصل کنید.
 - [ ] `NEXT_PUBLIC_SUPABASE_URL`، `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` و `SUPABASE_SECRET_KEY` را در Environment Variables تنظیم کنید.
 - [ ] همان `CRON_SECRET` را در Vercel تنظیم کنید تا Cron مجاز به پاکسازی باشد.
-- [ ] Deploy کنید و در Supabase Auth → URL Configuration → Redirect URLs این callback را ثبت کنید: `https://ratio-self.vercel.app/auth/callback`.
+- [ ] در Supabase Auth → URL Configuration، Site URL را روی `https://raito-self.vercel.app` بگذارید و این callback را به Redirect URLs اضافه کنید: `https://raito-self.vercel.app/auth/callback`.
 - [ ] پس از deploy، ورود Google، آپلود، پخش URL امضاشده و اجرای cron را بررسی کنید.
 
 ## سقف فایل و پاکسازی

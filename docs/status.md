@@ -3,7 +3,7 @@
 ## زیرساخت
 
 - GitHub repository: `pouyanRG/Ratio`
-- Vercel project: `ratio`؛ دامنهٔ ثبت‌شده: `https://ratio-self.vercel.app/`
+- Vercel project: `ratio`؛ دامنهٔ فعلی: `https://raito-self.vercel.app/`
 - Supabase project: `Ratio`؛ project ID: `vmvrjadbvwtolvwnsclz`
 - آدرس Supabase: `https://vmvrjadbvwtolvwnsclz.supabase.co`
 - Google OAuth در Supabase تنظیم شده است؛ callback گوگل باید همان callback نمایش‌داده‌شده در تنظیمات Supabase باشد.
@@ -30,6 +30,6 @@ Next.js روی Vercel از Supabase Auth، PostgreSQL و bucket خصوصی Supab
 
 - اجرای migrationهای `0001` تا `0011` به ترتیب روی پروژهٔ Supabase. Migration `0010` اگر ردیف Story موجود باشد، برای جلوگیری از تغییر داده متوقف می‌شود.
 - افزودن `CRON_SECRET` به Environment Variables در Vercel و deploy مجدد.
-- ثبت `https://ratio-self.vercel.app/auth/callback` در Supabase Auth → URL Configuration → Redirect URLs.
+- تنظیم Site URL روی `https://raito-self.vercel.app` و ثبت `https://raito-self.vercel.app/auth/callback` در Supabase Auth → URL Configuration → Redirect URLs.
 - ثبت `CRON_SECRET` در Vercel، اجرای migrationها و تست end-to-end ورود، onboarding، آپلود، feed و stream هنوز روی deploy زنده تأیید نشده است.
 - تمدید خودکار signed URL از دقیقهٔ ۵۵ انجام می‌شود و refresh آن view تکراری نمی‌سازد.
