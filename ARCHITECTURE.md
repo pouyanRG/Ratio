@@ -50,6 +50,7 @@ Proxy فقط روی `/upload` و `/settings` اجرا می‌شود؛ feed و wa
 | `NEXT_PUBLIC_SUPABASE_URL` | مرورگر و سرور |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | مرورگر و سرور |
 | `SUPABASE_SECRET_KEY` | فقط سرور؛ هرگز در مرورگر یا Git قرار نگیرد |
+| `SUPABASE_SERVICE_ROLE_KEY` | JWT قدیمی `service_role` برای عملیات Storage؛ فقط سرور و هرگز در Git قرار نگیرد |
 | `SUPABASE_STORAGE_BUCKET` | اختیاری؛ پیش‌فرض `videos` |
 | `CRON_SECRET` | فقط سرور/Vercel؛ محافظت از endpoint پاکسازی |
 

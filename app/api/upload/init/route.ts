@@ -77,8 +77,14 @@ export async function POST(req: Request) {
 
   if (videoUpload.error || thumbUpload.error) {
     await admin.from("videos").delete().eq("id", reservedVideoId);
+    const signingError = videoUpload.error ?? thumbUpload.error;
+    const message = signingError?.message ?? "storage signing failed";
     return NextResponse.json(
-      { error: videoUpload.error?.message ?? thumbUpload.error?.message ?? "storage signing failed" },
+      {
+        error: /invalid compact jws/i.test(message)
+          ? "کلید دسترسی Supabase Storage معتبر نیست. مقدار service_role قدیمی را در SUPABASE_SERVICE_ROLE_KEY تنظیم و دوباره deploy کنید."
+          : message,
+      },
       { status: 502 }
     );
   }

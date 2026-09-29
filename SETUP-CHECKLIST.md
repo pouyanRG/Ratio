@@ -5,6 +5,7 @@
 - [ ] یک پروژهٔ Supabase بسازید و Project URL را ثبت کنید.
 - [ ] Publishable key را برای `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` بگیرید.
 - [ ] Secret key را فقط برای `SUPABASE_SECRET_KEY` سمت سرور نگه دارید؛ این کلید را در مرورگر یا Git نگذارید.
+- [ ] برای امضای URL آپلود Storage، JWT قدیمی `service_role` را در `SUPABASE_SERVICE_ROLE_KEY` قرار دهید؛ این مقدار فقط سمت سرور است و هرگز نباید در مرورگر یا Git قرار بگیرد.
 - [ ] Google provider را در Authentication فعال کنید و callback ارائه‌شده توسط Supabase را در Google Cloud ثبت کنید.
 - [ ] migrationهای `0001` تا `0011` را به ترتیب نام روی دیتابیس اجرا کنید. اگر migration `0010` به‌خاطر وجود ویدیوی Story متوقف شد، قبل از ادامه آن ردیف‌ها را بررسی کنید؛ migration آن‌ها را حذف نمی‌کند.
 - [ ] تأیید کنید bucket خصوصی `videos` حداکثر 52,428,800 بایت و MIMEهای `video/mp4` و `image/jpeg` را دارد.
@@ -24,7 +25,7 @@
 ## Vercel
 
 - [ ] Repository را به Vercel متصل کنید.
-- [ ] `NEXT_PUBLIC_SUPABASE_URL`، `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` و `SUPABASE_SECRET_KEY` را در Environment Variables تنظیم کنید.
+- [ ] `NEXT_PUBLIC_SUPABASE_URL`، `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`، `SUPABASE_SECRET_KEY` و `SUPABASE_SERVICE_ROLE_KEY` را در Environment Variables تنظیم کنید.
 - [ ] همان `CRON_SECRET` را در Vercel تنظیم کنید تا Cron مجاز به پاکسازی باشد.
 - [ ] در Supabase Auth → URL Configuration، Site URL را روی `https://raito-self.vercel.app` بگذارید و این callback را به Redirect URLs اضافه کنید: `https://raito-self.vercel.app/auth/callback`.
 - [ ] پس از deploy، ورود Google، آپلود، پخش URL امضاشده و اجرای cron را بررسی کنید.
@@ -45,6 +46,7 @@
 | `NEXT_PUBLIC_SUPABASE_URL` | آدرس پروژه |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | کلید عمومی Supabase |
 | `SUPABASE_SECRET_KEY` | کلید محرمانهٔ سمت سرور |
+| `SUPABASE_SERVICE_ROLE_KEY` | JWT قدیمی `service_role` برای امضای URLهای Storage؛ فقط سمت سرور |
 | `SUPABASE_STORAGE_BUCKET` | نام bucket؛ اختیاری، پیش‌فرض `videos` |
 | `CRON_SECRET` | رمز محافظ endpoint پاکسازی در Vercel |
 

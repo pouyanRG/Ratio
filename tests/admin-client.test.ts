@@ -19,6 +19,7 @@ describe("admin Supabase client", () => {
     vi.unstubAllGlobals();
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.SUPABASE_SECRET_KEY;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     vi.clearAllMocks();
   });
 
@@ -38,5 +39,28 @@ describe("admin Supabase client", () => {
     const requestHeaders = new Headers(fetchMock.mock.calls[0][1]?.headers);
     expect(requestHeaders.get("apikey")).toBe("sb_secret_test");
     expect(requestHeaders.has("Authorization")).toBe(false);
+  });
+
+  it("prefers the legacy service role JWT for Storage operations", async () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-jwt";
+    createAdminClient();
+    const [url, key, options] = mocks.createClient.mock.calls[0] as [
+      string,
+      string,
+      { global: { fetch: typeof fetch } },
+    ];
+
+    expect(url).toBe("https://project.supabase.co");
+    expect(key).toBe("service-role-jwt");
+
+    await options.global.fetch("https://project.supabase.co/storage/v1/object/upload/sign", {
+      headers: {
+        apikey: "service-role-jwt",
+        Authorization: "Bearer service-role-jwt",
+      },
+    });
+
+    const requestHeaders = new Headers(fetchMock.mock.calls[0][1]?.headers);
+    expect(requestHeaders.get("Authorization")).toBe("Bearer service-role-jwt");
   });
 });

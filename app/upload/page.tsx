@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useUpload } from "@/hooks/useUpload";
 import {
   getVideoFileError,
@@ -12,45 +12,159 @@ export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const isBusy = status === "uploading" || status === "finalizing";
+
+  function selectFile(selectedFile: File | null) {
+    setFile(selectedFile);
+    setFileError(selectedFile ? getVideoFileError(selectedFile) : null);
+  }
 
   return (
-    <main className="mx-auto grid w-full max-w-xl content-start gap-5 px-6 py-10 text-right">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">آپلود ویدیو</h1>
-        <Link className="text-sm text-zinc-500 underline" href="/settings">
-          تنظیمات
+    <main className="upload-page" dir="rtl">
+      <header className="upload-topbar">
+        <Link className="upload-wordmark" href="/" aria-label="Ratio، صفحه اصلی">
+          ratio<span>.</span>
         </Link>
-      </div>
-      <input
-        type="file"
-        accept={VIDEO_CONTENT_TYPE}
-        onChange={(event) => {
-          const selectedFile = event.target.files?.[0] ?? null;
-          setFile(selectedFile);
-          setFileError(selectedFile ? getVideoFileError(selectedFile) : null);
-        }}
-      />
-      <p className="text-sm text-zinc-500">فقط MP4، حداکثر ۵۰ مگابایت</p>
-      <p className="text-sm text-zinc-500">ویدیوهای حداکثر ۹۰ ثانیه به‌صورت ریلز منتشر می‌شوند.</p>
-      {fileError && <p role="alert" className="text-sm text-red-600">{fileError}</p>}
-      <textarea
-        className="min-h-28 rounded border border-zinc-300 bg-transparent p-3"
-        placeholder="کپشن"
-        value={caption}
-        onChange={(e) => setCaption(e.target.value)}
-      />
-      <button
-        className="rounded bg-zinc-900 px-4 py-3 text-white disabled:opacity-50 dark:bg-white dark:text-black"
-        disabled={!file || !!fileError || status === "uploading" || status === "finalizing"}
-        onClick={() => file && start(file, { caption })}
-      >
-        شروع آپلود
-      </button>
+        <nav aria-label="ناوبری اصلی">
+          <Link className="upload-settings-link" href="/settings">تنظیمات</Link>
+        </nav>
+      </header>
 
-      {status === "uploading" && <progress aria-label="پیشرفت آپلود" value={progress} max={100} />}
-      {status === "finalizing" && <p>در حال نهایی‌سازی…</p>}
-      {status === "ready" && <p>آماده شد ✅ (id: {videoId})</p>}
-      {status === "failed" && <p role="alert" className="text-red-600">خطا: {error}</p>}
+      <div className="upload-content">
+        <div className="upload-heading">
+          <p className="upload-kicker">انتشار در Ratio</p>
+          <h1>ویدیوی تازه‌ات را منتشر کن</h1>
+          <p>فایل را انتخاب کن، کپشن را بنویس و آمادهٔ انتشار شو.</p>
+        </div>
+
+        <div className="upload-layout">
+          <section className="upload-form-panel" aria-labelledby="upload-form-title">
+            <h2 id="upload-form-title">جزئیات ویدیو</h2>
+
+            <div
+              className={`upload-dropzone${isDragging ? " is-dragging" : ""}${file ? " has-file" : ""}`}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragOver={(event) => event.preventDefault()}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  setIsDragging(false);
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                setIsDragging(false);
+                selectFile(event.dataTransfer.files[0] ?? null);
+              }}
+            >
+              <input
+                ref={fileInput}
+                className="upload-file-input"
+                type="file"
+                accept={VIDEO_CONTENT_TYPE}
+                aria-label="انتخاب فایل ویدیو"
+                disabled={isBusy}
+                onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
+              />
+              <span className="upload-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14.5v3A2.5 2.5 0 0 0 7.5 20h9a2.5 2.5 0 0 0 2.5-2.5v-3" />
+                </svg>
+              </span>
+              {file ? (
+                <>
+                  <strong className="upload-file-name">{file.name}</strong>
+                  <span className="upload-file-meta">
+                    {new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 1 }).format(file.size / 1024 / 1024)} مگابایت
+                  </span>
+                  <button
+                    className="upload-change-file"
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => fileInput.current?.click()}
+                  >
+                    تغییر فایل
+                  </button>
+                </>
+              ) : (
+                <>
+                  <strong>فایل ویدیو را اینجا رها کن</strong>
+                  <span className="upload-file-meta">یا از دستگاهت انتخاب کن</span>
+                  <span className="upload-choose-button">انتخاب فایل</span>
+                </>
+              )}
+            </div>
+            {fileError && <p className="upload-error" role="alert">{fileError}</p>}
+
+            <label className="upload-field-label" htmlFor="video-caption">کپشن</label>
+            <textarea
+              id="video-caption"
+              className="upload-caption"
+              placeholder="برای ویدیوت کپشن بنویس..."
+              maxLength={2200}
+              value={caption}
+              onChange={(event) => setCaption(event.target.value)}
+            />
+            <div className="upload-caption-footer">
+              <span>حداکثر ۲۲۰۰ نویسه</span>
+              <span>{new Intl.NumberFormat("fa-IR").format(caption.length)} / ۲۲۰۰</span>
+            </div>
+
+            {status === "uploading" && (
+              <div className="upload-progress" aria-live="polite">
+                <div className="upload-progress-label">
+                  <span>در حال بارگذاری</span>
+                  <span>{new Intl.NumberFormat("fa-IR").format(progress)}٪</span>
+                </div>
+                <div
+                  className="upload-progress-track"
+                  role="progressbar"
+                  aria-label="پیشرفت بارگذاری"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progress}
+                >
+                  <span style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+            )}
+
+            {status === "finalizing" && (
+              <p className="upload-status" role="status">در حال بررسی و آماده‌سازی ویدیو...</p>
+            )}
+            {status === "ready" && (
+              <p className="upload-success" role="status">
+                ویدیوت با موفقیت آماده شد.
+                {videoId && <Link href={`/v/${videoId}`}>مشاهده ویدیو</Link>}
+              </p>
+            )}
+            {status === "failed" && <p className="upload-error" role="alert">{error}</p>}
+
+            <button
+              className="upload-submit"
+              type="button"
+              disabled={!file || !!fileError || isBusy}
+              onClick={() => file && start(file, { caption })}
+            >
+              {status === "uploading" ? "در حال بارگذاری..." : status === "finalizing" ? "در حال آماده‌سازی..." : "شروع بارگذاری"}
+            </button>
+          </section>
+
+          <aside className="upload-guidance" aria-labelledby="upload-guidance-title">
+            <h2 id="upload-guidance-title">پیش از بارگذاری</h2>
+            <ul>
+              <li><span>فرمت فایل</span><strong>MP4</strong></li>
+              <li><span>حداکثر حجم</span><strong>۵۰ مگابایت</strong></li>
+              <li><span>ویدیوی کوتاه</span><strong>تا ۹۰ ثانیه</strong></li>
+            </ul>
+            <p>ویدیوهای کوتاه به‌صورت ریلز منتشر می‌شوند. زمان ویدیو پس از بارگذاری بررسی خواهد شد.</p>
+          </aside>
+        </div>
+      </div>
     </main>
   );
 }
