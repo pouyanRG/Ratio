@@ -21,7 +21,7 @@ create policy "profiles_update_own" on public.profiles for update to authenticat
 create table public.videos (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
-  type text not null check (type in ('reel','long','story')),
+  type text not null check (type in ('reel','long')),
   duration_seconds int,
   caption text,
   status text not null default 'processing'

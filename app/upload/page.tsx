@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { useUpload } from "@/hooks/useUpload";
 import {
@@ -15,7 +16,12 @@ export default function UploadPage() {
 
   return (
     <main className="mx-auto grid w-full max-w-xl content-start gap-5 px-6 py-10 text-right">
-      <h1 className="text-2xl font-semibold">آپلود ویدیو</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold">آپلود ویدیو</h1>
+        <Link className="text-sm text-zinc-500 underline" href="/settings">
+          تنظیمات
+        </Link>
+      </div>
       <input
         type="file"
         accept={VIDEO_CONTENT_TYPE}

@@ -12,7 +12,7 @@
 
 Next.js روی Vercel از Supabase Auth، PostgreSQL و bucket خصوصی Supabase Storage استفاده می‌کند. آپلود مستقیم با signed URL و `PUT` انجام می‌شود؛ Bunny، HLS و VPS/FFmpeg worker در مسیر فعلی نیستند.
 
-فقط MP4 تا سقف 50 MiB پذیرفته می‌شود. bucket و API نیز نوع و حجم را محدود می‌کنند. پاکسازی ردیف‌های نیمه‌کاره با Vercel Cron روزانه انجام می‌شود و نیازمند `CRON_SECRET` در Vercel است.
+فقط MP4 تا سقف 50 MiB پذیرفته می‌شود. API اندازهٔ واقعی و امضای فایل را چک می‌کند و duration اعلام‌شده از مرورگر را ذخیره نمی‌کند. سهمیه‌ها: ۲ آپلود فعال، ۱۰ شروع در ۲۴ ساعت، 500 MiB برای هر کاربر و 900 MiB برای کل پروژه. پاکسازی ردیف و فایل‌های یتیم با Vercel Cron روزانه و `CRON_SECRET` انجام می‌شود.
 
 ## نام متغیرهای محیطی
 
@@ -26,7 +26,9 @@ Next.js روی Vercel از Supabase Auth، PostgreSQL و bucket خصوصی Supab
 
 ## کارهای باقی‌مانده برای استقرار
 
-- اجرای migrationهای `0001` تا `0008` به ترتیب روی پروژهٔ Supabase، به‌ویژه migrationهای تازهٔ محدودیت bucket و حذف ستون‌های Bunny.
+- اجرای migrationهای `0001` تا `0010` به ترتیب روی پروژهٔ Supabase. Migration `0010` اگر ردیف Story موجود باشد، برای جلوگیری از تغییر داده متوقف می‌شود.
 - افزودن `CRON_SECRET` به Environment Variables در Vercel و deploy مجدد.
 - ثبت `https://ratio-self.vercel.app/auth/callback` در Supabase Auth → URL Configuration → Redirect URLs.
+- ثبت `https://ratio-self.vercel.app/auth/callback` در Supabase Auth → URL Configuration → Redirect URLs.
 - تست end-to-end ورود، onboarding، آپلود MP4 تا 50 MiB، complete تکراری و دریافت URL پخش پس از اجرای migrationها.
+- اجرای پلیر و تمدید خودکار signed URL یک‌ساعته هنوز به فاز ۳ موکول است؛ فعلاً هر درخواست جدید به stream URL تازه می‌گیرد.

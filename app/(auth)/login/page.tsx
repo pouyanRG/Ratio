@@ -16,8 +16,13 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ display: "grid", placeItems: "center", minHeight: "100dvh" }}>
-      <button onClick={signInWithGoogle}>ورود با گوگل</button>
+    <main className="grid min-h-dvh place-items-center px-6">
+      <button
+        className="rounded bg-zinc-900 px-5 py-3 font-semibold text-white dark:bg-white dark:text-black"
+        onClick={signInWithGoogle}
+      >
+        ورود با گوگل
+      </button>
     </main>
   );
 }

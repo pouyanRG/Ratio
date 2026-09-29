@@ -4,6 +4,8 @@ import { thumbnailStorageKey, VIDEO_BUCKET } from "@/lib/storage";
 
 const MAX_ROWS_PER_RUN = 100;
 const STALE_AFTER_HOURS = 48;
+const MAX_ORPHAN_FOLDERS_PER_RUN = 25;
+const VIDEO_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -71,18 +73,73 @@ export async function GET(request: Request) {
   }
 
   const staleIds = staleVideos.map((video) => video.id);
-  if (!staleIds.length) return NextResponse.json({ deleted: 0 });
+  let deletedCount = 0;
+  if (staleIds.length) {
+    const { data: deletedVideos, error: deleteError } = await admin
+      .from("videos")
+      .delete()
+      .in("id", staleIds)
+      .eq("status", "failed")
+      .select("id");
 
-  const { data: deletedVideos, error: deleteError } = await admin
-    .from("videos")
-    .delete()
-    .in("id", staleIds)
-    .eq("status", "failed")
-    .select("id");
-
-  if (deleteError) {
-    return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    }
+    deletedCount = deletedVideos?.length ?? 0;
   }
 
-  return NextResponse.json({ deleted: deletedVideos?.length ?? 0 });
+  const { data: folders, error: listError } = await storage.list("videos", {
+    limit: 1000,
+  });
+  if (listError) {
+    return NextResponse.json({ error: listError.message }, { status: 502 });
+  }
+
+  const folderIds = (folders ?? [])
+    .filter((item) => item.id === null && VIDEO_ID_PATTERN.test(item.name))
+    .map((item) => item.name);
+  const { data: existingVideos, error: lookupError } = folderIds.length
+    ? await admin.from("videos").select("id").in("id", folderIds)
+    : { data: [], error: null };
+  if (lookupError) {
+    return NextResponse.json({ error: lookupError.message }, { status: 500 });
+  }
+
+  const existingIds = new Set((existingVideos ?? []).map((video) => video.id));
+  const orphanIds = folderIds
+    .filter((id) => !existingIds.has(id))
+    .slice(0, MAX_ORPHAN_FOLDERS_PER_RUN);
+  const orphanPaths: string[] = [];
+
+  for (const orphanId of orphanIds) {
+    const { data: objects, error: objectListError } = await storage.list(
+      `videos/${orphanId}`,
+      { limit: 100 }
+    );
+    if (objectListError) {
+      return NextResponse.json({ error: objectListError.message }, { status: 502 });
+    }
+    for (const object of objects ?? []) {
+      const createdAt = object.created_at ? Date.parse(object.created_at) : Number.NaN;
+      if (
+        object.id !== null &&
+        Number.isFinite(createdAt) &&
+        createdAt < Date.parse(cutoff)
+      ) {
+        orphanPaths.push(`videos/${orphanId}/${object.name}`);
+      }
+    }
+  }
+
+  if (orphanPaths.length) {
+    const { error: orphanRemoveError } = await storage.remove(orphanPaths);
+    if (orphanRemoveError) {
+      return NextResponse.json({ error: orphanRemoveError.message }, { status: 502 });
+    }
+  }
+
+  return NextResponse.json({
+    deleted: deletedCount,
+    orphanFilesDeleted: orphanPaths.length,
+  });
 }

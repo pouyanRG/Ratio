@@ -37,7 +37,7 @@ async function extractMeta(file: File) {
     } catch {
       // thumbnail is best-effort; playback still works without it
     }
-    return { duration, thumbnail };
+    return { thumbnail };
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -113,7 +113,7 @@ export function useUpload() {
       if (aborted.current) return;
 
       setStatus("finalizing");
-      const { duration, thumbnail } = await extractMeta(file);
+      const { thumbnail } = await extractMeta(file);
 
       if (thumbnail) {
         try {
@@ -126,7 +126,7 @@ export function useUpload() {
       const completeRes = await fetch("/api/upload/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoId: init.videoId, duration }),
+        body: JSON.stringify({ videoId: init.videoId }),
       });
       if (!completeRes.ok) {
         throw new Error(

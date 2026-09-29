@@ -20,6 +20,16 @@ export async function GET(
   if (!video?.storage_key)
     return NextResponse.json({ error: "not found" }, { status: 404 });
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    const { error } = await supabase.rpc("record_video_view", {
+      p_video_id: video.id,
+    });
+    if (error) console.error("Could not record video view", error.message);
+  }
+
   const [videoUrl, thumbnailUrl] = await Promise.all([
     createReadUrl(video.storage_key),
     createReadUrl(thumbnailStorageKey(video.id)).catch(() => null),

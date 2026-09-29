@@ -10,7 +10,8 @@ Uploads use signed `PUT` URLs directly to Supabase Storage. The current app acce
 2. Copy `.env.example` to `.env.local` and fill in the Supabase values.
 3. Apply the migrations in `supabase/migrations/` in filename order.
 4. Set a private `CRON_SECRET` in Vercel to enable scheduled abandoned-upload cleanup.
-5. Start the development server:
+5. Run `npm test` to check upload validation and security-sensitive routes.
+6. Start the development server:
 
 ```bash
 npm run dev

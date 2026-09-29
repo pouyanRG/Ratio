@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { storageObjectExists } from "@/lib/storage";
+import { storageObjectIsMp4 } from "@/lib/storage";
+import { MAX_VIDEO_SIZE_BYTES } from "@/lib/upload-constraints";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -10,7 +11,7 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const body = (await req.json()) as { videoId?: string; duration?: number };
+  const body = (await req.json()) as { videoId?: string };
   if (!body.videoId)
     return NextResponse.json({ error: "videoId required" }, { status: 400 });
 
@@ -29,19 +30,36 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "upload is no longer active" }, { status: 409 });
   }
 
-  if (!(await storageObjectExists(video.storage_key)))
+  const admin = createAdminClient();
+  const storage = admin.storage.from(process.env.SUPABASE_STORAGE_BUCKET || "videos");
+  const { data: objectInfo, error: infoError } = await storage.info(video.storage_key);
+  if (infoError || !objectInfo)
     return NextResponse.json({ error: "upload not found in storage" }, { status: 400 });
+  if (
+    typeof objectInfo.size !== "number" ||
+    objectInfo.size <= 0 ||
+    objectInfo.size > MAX_VIDEO_SIZE_BYTES
+  ) {
+    return NextResponse.json({ error: "uploaded file exceeds storage limits" }, { status: 413 });
+  }
+  let validMp4: boolean;
+  try {
+    validMp4 = await storageObjectIsMp4(video.storage_key);
+  } catch {
+    return NextResponse.json({ error: "could not verify uploaded file" }, { status: 502 });
+  }
+  if (!validMp4) {
+    return NextResponse.json({ error: "uploaded file is not a valid MP4" }, { status: 415 });
+  }
 
   // Only "authenticated" has update(caption) granted, so the status change
   // goes through the service_role admin client.
-  const { data: updatedVideo, error: updateError } = await createAdminClient()
+  const { data: updatedVideo, error: updateError } = await admin
     .from("videos")
     .update({
       status: "ready",
-      duration_seconds:
-        Number.isFinite(body.duration) && (body.duration as number) > 0
-          ? Math.round(body.duration as number)
-          : null,
+      duration_seconds: null,
+      file_size_bytes: objectInfo.size,
     })
     .eq("id", video.id)
     .eq("status", "processing")

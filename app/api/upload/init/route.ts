@@ -50,28 +50,51 @@ export async function POST(req: Request) {
   const videoKey = videoStorageKey(videoId);
   const thumbKey = thumbnailStorageKey(videoId);
 
-  const { data, error } = await supabase
-    .from("videos")
-    .insert({
-      id: videoId,
-      user_id: user.id,
-      type,
-      storage_key: videoKey,
-      caption: caption ? String(caption).slice(0, 2200) : null,
-      status: "processing",
-    })
-    .select("id")
-    .single();
+  const { data: reservedVideoId, error: reserveError } = await supabase.rpc(
+    "reserve_video_upload",
+    {
+      p_video_id: videoId,
+      p_type: type,
+      p_storage_key: videoKey,
+      p_caption: caption ? String(caption).slice(0, 2200) : null,
+    }
+  );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (reserveError) {
+    const message = reserveError.message;
+    if (message.includes("UPLOAD_PROFILE_REQUIRED")) {
+      return NextResponse.json(
+        { error: "complete onboarding before uploading" },
+        { status: 409 }
+      );
+    }
+    if (message.includes("UPLOAD_ACTIVE_LIMIT") || message.includes("UPLOAD_DAILY_LIMIT")) {
+      return NextResponse.json(
+        { error: "upload quota reached; try again later" },
+        { status: 429 }
+      );
+    }
+    if (message.includes("UPLOAD_")) {
+      return NextResponse.json(
+        { error: "video storage quota reached" },
+        { status: 507 }
+      );
+    }
+    return NextResponse.json({ error: "could not reserve upload" }, { status: 500 });
+  }
+  if (!reservedVideoId) {
+    return NextResponse.json({ error: "could not reserve upload" }, { status: 500 });
+  }
 
-  const storage = createAdminClient().storage.from(VIDEO_BUCKET);
+  const admin = createAdminClient();
+  const storage = admin.storage.from(VIDEO_BUCKET);
   const [videoUpload, thumbUpload] = await Promise.all([
     storage.createSignedUploadUrl(videoKey),
     storage.createSignedUploadUrl(thumbKey),
   ]);
 
   if (videoUpload.error || thumbUpload.error) {
+    await admin.from("videos").delete().eq("id", reservedVideoId);
     return NextResponse.json(
       { error: videoUpload.error?.message ?? thumbUpload.error?.message ?? "storage signing failed" },
       { status: 502 }
@@ -79,7 +102,7 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({
-    videoId: data.id,
+    videoId: reservedVideoId,
     videoKey,
     uploadUrl: videoUpload.data.signedUrl,
     thumbUploadUrl: thumbUpload.data.signedUrl,
