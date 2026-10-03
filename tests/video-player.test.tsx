@@ -16,17 +16,14 @@ describe("VideoPlayer", () => {
     vi.unstubAllGlobals();
   });
 
-  it("refreshes its signed URL before the one-hour expiry", async () => {
-    const fetchMock = vi.fn(async (input: string | URL | Request) => {
-      const refresh = String(input).includes("refresh=1");
-      return {
-        ok: true,
-        json: async () => ({
-          videoUrl: refresh ? "https://storage.example/renewed" : "https://storage.example/initial",
-          thumbnailUrl: null,
-        }),
-      };
-    });
+  it("keeps a persistent UploadThing URL without periodic refresh requests", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        videoUrl: "https://utfs.io/f/persistent-video",
+        thumbnailUrl: null,
+      }),
+    }));
     vi.stubGlobal("fetch", fetchMock);
 
     const { getByLabelText } = render(
@@ -39,50 +36,46 @@ describe("VideoPlayer", () => {
 
     const player = getByLabelText("test video") as HTMLVideoElement;
     expect(fetchMock).toHaveBeenCalledWith("/api/stream/video-1", { cache: "no-store" });
-    expect(player.src).toBe("https://storage.example/initial");
+    expect(player.src).toBe("https://utfs.io/f/persistent-video");
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(55 * 60 * 1000);
     });
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/stream/video-1?refresh=1", {
-      cache: "no-store",
-    });
-    expect(player.src).toBe("https://storage.example/renewed");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(player.src).toBe("https://utfs.io/f/persistent-video");
   });
 
-  it("requests a fresh URL after a playback error", async () => {
-    const fetchMock = vi.fn(async (input: string | URL | Request) => {
-      const refresh = String(input).includes("refresh=1");
-      return {
-        ok: true,
-        json: async () => ({
-          videoUrl: refresh ? "https://storage.example/recovered" : "https://storage.example/expired",
-          thumbnailUrl: null,
-        }),
-      };
-    });
+  it("retries without recording another view after a playback error", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        videoUrl: "https://utfs.io/f/persistent-video",
+        thumbnailUrl: null,
+      }),
+    }));
     vi.stubGlobal("fetch", fetchMock);
 
     const { getByLabelText } = render(
-      <VideoPlayer videoId="video-2" title="expired video" />
+      <VideoPlayer videoId="video-2" title="video with playback error" />
     );
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    fireEvent.error(getByLabelText("expired video"));
+    fireEvent.error(getByLabelText("video with playback error"));
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/stream/video-2?refresh=1", {
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/stream/video-2?refresh=1", {
       cache: "no-store",
     });
-    expect((getByLabelText("expired video") as HTMLVideoElement).src).toBe(
-      "https://storage.example/recovered"
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((getByLabelText("video with playback error") as HTMLVideoElement).src).toBe(
+      "https://utfs.io/f/persistent-video"
     );
   });
 });

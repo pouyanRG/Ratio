@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { getVideoFileError } from "@/lib/upload-constraints";
+import { useUploadThing } from "@/lib/uploadthing";
 
 type Status = "idle" | "uploading" | "finalizing" | "ready" | "failed";
 
@@ -43,43 +44,16 @@ async function extractMeta(file: File) {
   }
 }
 
-function xhrUpload(url: string, file: Blob, onProgress: (p: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url);
-    xhr.setRequestHeader("x-upsert", "false");
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-        return;
-      }
-
-      let message = xhr.responseText;
-      try {
-        const body = JSON.parse(xhr.responseText) as {
-          message?: string;
-          error?: string;
-        };
-        message = body.message ?? body.error ?? message;
-      } catch {
-        // Keep the response text when Storage does not return JSON.
-      }
-      reject(new Error(`upload failed: ${xhr.status}${message ? ` - ${message}` : ""}`));
-    };
-    xhr.onerror = () => reject(new Error("upload failed: network error"));
-    xhr.send(file);
-  });
-}
-
 export function useUpload() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
   const [videoId, setVideoId] = useState<string | null>(null);
   const aborted = useRef(false);
+  const { startUpload: uploadVideo } = useUploadThing("videoUploader", {
+    onUploadProgress: setProgress,
+  });
+  const { startUpload: uploadThumb } = useUploadThing("thumbnailUploader");
 
   useEffect(() => {
     aborted.current = false;
@@ -88,12 +62,10 @@ export function useUpload() {
     };
   }, []);
 
-  async function start(
-    file: File,
-    opts: { caption: string }
-  ) {
+  async function start(file: File, opts: { caption: string }) {
     setError("");
     setProgress(0);
+    setVideoId(null);
 
     const validationError = getVideoFileError(file);
     if (validationError) {
@@ -105,53 +77,26 @@ export function useUpload() {
     setStatus("uploading");
 
     try {
-      const initRes = await fetch("/api/upload/init", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...opts,
-          type: "long",
-          contentType: file.type,
-          size: file.size,
-        }),
-      });
-      if (!initRes.ok) {
-        throw new Error(
-          ((await initRes.json()) as { error?: string }).error ?? "init failed"
-        );
-      }
-      const init = (await initRes.json()) as {
-        videoId: string;
-        uploadUrl: string;
-        thumbUploadUrl: string;
-      };
+      const result = await uploadVideo([file], { caption: opts.caption });
+      const newVideoId = result?.[0]?.serverData?.videoId;
+      if (!newVideoId) throw new Error("upload failed");
       if (aborted.current) return;
-      setVideoId(init.videoId);
-
-      await xhrUpload(init.uploadUrl, file, setProgress);
-      if (aborted.current) return;
+      setVideoId(newVideoId);
 
       setStatus("finalizing");
       const { thumbnail } = await extractMeta(file);
 
       if (thumbnail) {
         try {
-          await xhrUpload(init.thumbUploadUrl, thumbnail, () => {});
+          await uploadThumb(
+            [new File([thumbnail], "thumb.jpg", { type: "image/jpeg" })],
+            { videoId: newVideoId }
+          );
         } catch {
           // thumbnail is optional
         }
       }
-
-      const completeRes = await fetch("/api/upload/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoId: init.videoId }),
-      });
-      if (!completeRes.ok) {
-        throw new Error(
-          ((await completeRes.json()) as { error?: string }).error ?? "complete failed"
-        );
-      }
+      if (aborted.current) return;
       setStatus("ready");
     } catch (e) {
       if (aborted.current) return;

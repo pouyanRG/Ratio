@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { thumbnailStorageKey, VIDEO_BUCKET } from "@/lib/storage";
+import { UTApi } from "uploadthing/server";
 
 export async function DELETE(
   _: Request,
@@ -16,7 +16,7 @@ export async function DELETE(
 
   const { data: video, error: lookupError } = await supabase
     .from("videos")
-    .select("id, storage_key")
+    .select("id, storage_key, thumbnail_key")
     .eq("id", id)
     .eq("user_id", user.id)
     .eq("status", "ready")
@@ -39,12 +39,23 @@ export async function DELETE(
   if (!claimed)
     return NextResponse.json({ error: "video is no longer available" }, { status: 409 });
 
-  const { error: storageError } = await admin.storage.from(VIDEO_BUCKET).remove([
-    video.storage_key,
-    thumbnailStorageKey(video.id),
-  ]);
-  if (storageError)
+  try {
+    const keys = [video.storage_key, video.thumbnail_key].filter(
+      (key): key is string => !!key
+    );
+    const deletion = keys.length
+      ? await new UTApi().deleteFiles(keys)
+      : { success: true, deletedCount: 0 };
+    if (!deletion.success) throw new Error("UploadThing file deletion failed");
+  } catch {
+    await admin
+      .from("videos")
+      .update({ status: "ready" })
+      .eq("id", video.id)
+      .eq("user_id", user.id)
+      .eq("status", "failed");
     return NextResponse.json({ error: "could not delete video files" }, { status: 502 });
+  }
 
   const { error: deleteError } = await admin
     .from("videos")

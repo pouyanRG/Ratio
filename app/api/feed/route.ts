@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { thumbnailStorageKey, VIDEO_BUCKET } from "@/lib/storage";
 
 const PAGE_SIZE = 20;
-const URL_EXPIRES_SECONDS = 3600;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|\+00:00)$/;
 
@@ -47,7 +44,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("videos")
     .select(
-      "id, type, user_id, storage_key, caption, created_at, duration_seconds, views_count, profiles!videos_user_id_fkey(username, display_name, avatar_url)"
+      "id, type, user_id, thumbnail_url, caption, created_at, duration_seconds, views_count, profiles!videos_user_id_fkey(username, display_name, avatar_url)"
     )
     .eq("status", "ready");
   if (type) query = query.eq("type", type);
@@ -66,19 +63,6 @@ export async function GET(request: Request) {
   const rows = data ?? [];
   const hasMore = rows.length > PAGE_SIZE;
   const page = rows.slice(0, PAGE_SIZE);
-  const thumbnailPaths = page.map((video) => thumbnailStorageKey(video.id));
-  const { data: thumbnails, error: thumbnailError } = thumbnailPaths.length
-    ? await createAdminClient()
-        .storage.from(VIDEO_BUCKET)
-        .createSignedUrls(thumbnailPaths, URL_EXPIRES_SECONDS)
-    : { data: [], error: null };
-  if (thumbnailError) {
-    return NextResponse.json({ error: "could not sign feed thumbnails" }, { status: 502 });
-  }
-
-  const thumbnailUrls = new Map(
-    (thumbnails ?? []).map((thumbnail) => [thumbnail.path, thumbnail.signedUrl])
-  );
   const videos = page.map((video) => {
     const creator = Array.isArray(video.profiles)
       ? video.profiles[0] ?? null
@@ -92,7 +76,7 @@ export async function GET(request: Request) {
       duration_seconds: video.duration_seconds,
       views_count: video.views_count,
       creator,
-      thumbnailUrl: thumbnailUrls.get(thumbnailStorageKey(video.id)) ?? null,
+      thumbnailUrl: video.thumbnail_url ?? null,
     };
   });
   const last = page.at(-1);

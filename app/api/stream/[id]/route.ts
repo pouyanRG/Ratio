@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createReadUrl, thumbnailStorageKey } from "@/lib/storage";
 
-// Returns short-lived signed URLs for files in the private storage bucket.
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -12,12 +10,12 @@ export async function GET(
 
   const { data: video } = await supabase
     .from("videos")
-    .select("id, storage_key, duration_seconds")
+    .select("id, video_url, thumbnail_url, duration_seconds")
     .eq("id", id)
     .eq("status", "ready")
     .maybeSingle();
 
-  if (!video?.storage_key)
+  if (!video?.video_url)
     return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const {
@@ -31,13 +29,12 @@ export async function GET(
     if (error) console.error("Could not record video view", error.message);
   }
 
-  const [videoUrl, thumbnailUrl] = await Promise.all([
-    createReadUrl(video.storage_key),
-    createReadUrl(thumbnailStorageKey(video.id)).catch(() => null),
-  ]);
-
   return NextResponse.json(
-    { videoUrl, thumbnailUrl, duration: video.duration_seconds },
+    {
+      videoUrl: video.video_url,
+      thumbnailUrl: video.thumbnail_url,
+      duration: video.duration_seconds,
+    },
     { headers: { "Cache-Control": "no-store" } }
   );
 }

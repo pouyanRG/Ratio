@@ -18,8 +18,6 @@ type VideoPlayerProps = {
   className?: string;
 };
 
-const REFRESH_INTERVAL_MS = 55 * 60 * 1000;
-
 export function VideoPlayer({
   videoId,
   title,
@@ -29,7 +27,7 @@ export function VideoPlayer({
   className = "",
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const refreshRef = useRef<() => void>(() => {});
+  const retryRef = useRef<() => void>(() => {});
   const [stream, setStream] = useState<StreamData | null>(null);
   const [muted, setMuted] = useState(true);
   const [errorState, setErrorState] = useState<{ videoId: string; message: string } | null>(null);
@@ -46,13 +44,15 @@ export function VideoPlayer({
     let mounted = true;
     let refreshing = false;
 
-    const loadStream = async (refresh: boolean) => {
+    const loadStream = async (suppressView = false) => {
       if (refreshing) return;
       refreshing = true;
       try {
         const response = await fetch(
-          `/api/stream/${encodeURIComponent(videoId)}${refresh ? "?refresh=1" : ""}`,
-          { cache: "no-store" }
+          `/api/stream/${encodeURIComponent(videoId)}${suppressView ? "?refresh=1" : ""}`,
+          {
+          cache: "no-store",
+          }
         );
         if (!response.ok) throw new Error("ویدیو در دسترس نیست.");
         const data = (await response.json()) as Omit<StreamData, "videoId">;
@@ -67,14 +67,12 @@ export function VideoPlayer({
       }
     };
 
-    refreshRef.current = () => void loadStream(true);
-    if (stream?.videoId !== videoId) void loadStream(false);
-    const timer = window.setInterval(() => void loadStream(true), REFRESH_INTERVAL_MS);
+    retryRef.current = () => void loadStream(true);
+    if (stream?.videoId !== videoId) void loadStream();
 
     return () => {
       mounted = false;
-      window.clearInterval(timer);
-      refreshRef.current = () => {};
+      retryRef.current = () => {};
     };
   }, [active, stream?.videoId, videoId]);
 
@@ -112,7 +110,7 @@ export function VideoPlayer({
           muted={muted}
           preload="metadata"
           poster={poster}
-          onError={() => refreshRef.current()}
+          onError={() => retryRef.current()}
         />
       )}
       {!active && poster && (
@@ -135,7 +133,7 @@ export function VideoPlayer({
           <p role="alert">{error}</p>
           <button
             className="mx-auto rounded border border-white/60 px-4 py-2"
-            onClick={() => refreshRef.current()}
+            onClick={() => retryRef.current()}
           >
             تلاش دوباره
           </button>

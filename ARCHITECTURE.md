@@ -3,43 +3,35 @@
 ## فناوری‌ها
 
 - Next.js 16 App Router و React 19 روی Vercel
-- Supabase Auth، PostgreSQL و Storage خصوصی
+- Supabase Auth و PostgreSQL برای کاربران و metadata؛ UploadThing برای فایل‌ها
 - Tailwind CSS 4 برای استایل UI؛ `app/globals.css` فقط Tailwind و توکن‌های پایه را بارگذاری می‌کند.
 - رابط فارسی با `lang="fa"` و `dir="rtl"`
-- فایل اصلی MP4 و thumbnail JPEG در bucket خصوصی `videos` ذخیره می‌شوند.
+- فایل MP4 و thumbnail JPEG در UploadThing ذخیره می‌شوند و URL عمومی‌شان در جدول `videos` است.
 
-در پیاده‌سازی فعلی Bunny Stream، worker، FFmpeg و HLS وجود ندارد. پخش MP4 از URL امضاشدهٔ فایل اصلی انجام می‌شود. صفحهٔ اصلی گرید feed، `/reels` فید عمودی، و `/v/[id]` صفحهٔ تماشای ویدیوی بلند است؛ route group اصلی Navbar مشترک دارد.
+در پیاده‌سازی فعلی Bunny Stream، worker، FFmpeg و HLS وجود ندارد. پخش MP4 از URL عمومی UploadThing انجام می‌شود. صفحهٔ اصلی گرید feed، `/reels` فید عمودی، و `/v/[id]` صفحهٔ تماشای ویدیوی بلند است؛ route group اصلی Navbar مشترک دارد.
 
 ## جریان آپلود
 
 1. مرورگر فایل MP4 را حداکثر ۵۰ MiB اعتبارسنجی می‌کند.
-2. `POST /api/upload/init` کاربر، نوع فایل و اندازهٔ اعلامی را بررسی می‌کند؛ RPC تراکنشی و lockدار سهمیه را رزرو می‌کند و سپس URLهای امضاشدهٔ فایل و thumbnail را می‌سازد.
-3. مرورگر بایت‌های خام را مستقیماً با `PUT` به Supabase Storage می‌فرستد؛ ویدیو از Vercel عبور نمی‌کند.
-4. `POST /api/upload/complete` مالکیت، اندازهٔ واقعی Storage، امضای MP4 و duration داخل `moov/mvhd` را با Range request بررسی می‌کند. duration اعلامی مرورگر استفاده نمی‌شود. ویدیوهای تا ۹۰ ثانیه `reel` و بقیه `long` می‌شوند.
-5. Player فقط هنگام فعال‌شدن stream URL می‌گیرد؛ URL یک‌ساعته را در دقیقهٔ ۵۵ یا پس از خطای پخش refresh می‌کند. درخواست `?refresh=1` view جدید ثبت نمی‌کند.
+2. `POST /api/uploadthing` به کاربر واردشده و دارای profile اجازهٔ آپلود ویدیو یا thumbnail می‌دهد.
+3. مرورگر فایل را مستقیماً به UploadThing می‌فرستد؛ بایت‌های ویدیو از Vercel عبور نمی‌کنند.
+4. callback سمت سرور اندازه، امضای MP4 و duration داخل `moov/mvhd` را با Range request بررسی می‌کند؛ سپس `storage_key`، `video_url` و metadata را در `videos` ذخیره می‌کند. duration اعلامی مرورگر استفاده نمی‌شود. ویدیوهای تا ۹۰ ثانیه `reel` و بقیه `long` می‌شوند.
+5. thumbnail از مرورگر استخراج و جداگانه آپلود می‌شود. Player URL مستقیم را از `GET /api/stream/[id]` می‌گیرد و نیازی به refresh دوره‌ای ندارد؛ retry پس از خطای پخش view جدید ثبت نمی‌کند.
 
-سهمیه‌های فعلی پیش‌فرض‌های قابل‌تغییرند: حداکثر ۲ آپلود فعال و ۱۰ شروع آپلود در هر ۲۴ ساعت برای هر کاربر، 500 MiB فضای رزروشده برای هر کاربر و 900 MiB برای کل ویدیوهای برنامه. فایل pending کل 50 MiB را رزرو می‌کند؛ پس از `complete` اندازهٔ واقعی جایگزین رزرو می‌شود.
-
-bucket خصوصی فقط `video/mp4` و `image/jpeg` را می‌پذیرد و سقف هر فایل آن 52,428,800 بایت (50 MiB) است. سقف پلن Free در Supabase هم 50 MB است. برای فایل‌های بزرگ‌تر باید پلن و global limit پروژه ارتقا یابد و هم‌زمان محدودیت UI/API و migration bucket تغییر کند.
-
-## پاکسازی آپلودهای رهاشده
-
-Vercel Cron روزی یک‌بار به `GET /api/cron/cleanup-uploads` درخواست می‌فرستد. endpoint فقط با `Authorization: Bearer $CRON_SECRET` اجرا می‌شود. ردیف‌های `processing` قدیمی‌تر از ۴۸ ساعت ابتدا به `failed` منتقل می‌شوند؛ سپس فایل و thumbnail حذف و در پایان ردیف پاک می‌شود. خطاها ردیف را نگه می‌دارند تا اجرای بعدی دوباره تلاش کند. Cron همچنین پوشه‌های Storage بدون ردیف و قدیمی‌تر از ۴۸ ساعت را پاک می‌کند تا حذف cascade پروفایل فایل یتیم نگذارد.
-
-پلن Hobby کرون را حداکثر روزی یک‌بار اجرا می‌کند؛ اجرای زمان‌بندی‌شده ممکن است در همان ساعت با تأخیر انجام شود. تنظیم زمان در `vercel.json` است.
+فایل‌ها در UploadThing عمومی‌اند: هرکسی URL را داشته باشد می‌تواند محتوا را ببیند. حد ۵۰ MiB نیز در UI و callback سمت سرور بررسی می‌شود؛ سقف endpoint UploadThing برابر ۶۴ MB تنظیم شده و محدودیت برنامه ۵۰ MiB است. پلن رایگان UploadThing سقف کلی ۲ GiB دارد. محدودیت‌های قبلی دو آپلود هم‌زمان، ۱۰ آپلود روزانه و سهمیهٔ حجمی per-user/per-project دیگر enforce نمی‌شوند؛ RPC قدیمی در migrationها باقی مانده ولی برنامه آن را فراخوانی نمی‌کند.
 
 ## پایگاه داده
 
 - `profiles`: اطلاعات پروفایل متصل به `auth.users`
-- `videos`: مالک، نوع (`reel` یا `long`)، `storage_key`، `file_size_bytes`، caption، duration از MP4، status، شمارنده و زمان ایجاد
+- `videos`: مالک، نوع (`reel` یا `long`)، `storage_key` (کلید UploadThing)، `video_url`، `thumbnail_url`، `thumbnail_key`، `file_size_bytes`، caption، duration از MP4، status، شمارنده و زمان ایجاد
 - `video_views`: آخرین بازدید هر ویدیو برای هر کاربر واردشده؛ شمارنده برای هر حساب حداکثر یک‌بار در ۲۴ ساعت زیاد می‌شود.
-- Feed: `GET /api/feed?type=reel&cursor=...` از keyset cursor روی `(created_at, id)` استفاده می‌کند و thumbnailها را با یک `createSignedUrls` batch امضا می‌کند. Stream URL فقط برای player فعال درخواست می‌شود.
-- ستون‌های مخصوص Bunny مانند `bunny_video_id` و `thumbnail_url` استفاده نمی‌شوند.
-- RLS برای جدول‌ها فعال است. درج ویدیو مستقیم از کلاینت بسته است و فقط RPC سهمیه‌دار می‌تواند رزرو بسازد؛ تغییر وضعیت با کلید secret و فقط سمت سرور انجام می‌شود.
+- Feed: `GET /api/feed?type=reel&cursor=...` از keyset cursor روی `(created_at, id)` استفاده می‌کند و URL thumbnail را مستقیم از دیتابیس می‌خواند.
+- ستون‌های مخصوص Bunny مانند `bunny_video_id` استفاده نمی‌شوند.
+- RLS برای جدول‌ها فعال است. callbackهای UploadThing با Supabase admin پس از احراز هویت و بررسی profile ویدیوها را درج می‌کنند؛ درج مستقیم از مرورگر انجام نمی‌شود.
 - `DELETE /api/videos/[id]` فایل‌ها و ردیف ویدیوی آمادهٔ متعلق به کاربر را حذف می‌کند.
 - Story تا آماده‌شدن API آن در فاز ۵ از schema/API پشتیبانی نمی‌شود. Migration `0010` در صورت وجود ردیف Story قدیمی متوقف می‌شود.
 
-Migrationها به ترتیب نام در `supabase/migrations/` قرار دارند. `0007` محدودیت bucketهای موجود را تنظیم می‌کند، `0008` ستون‌های قدیمی Bunny را حذف می‌کند، `0009` سهمیه و RPC رزرو را اضافه می‌کند، `0010` Story را تا فاز بعد غیرفعال و ثبت بازدید را اضافه می‌کند، و `0011` ایندکس feed را می‌سازد.
+Migrationها به ترتیب نام در `supabase/migrations/` قرار دارند. `0013` ستون‌های URL و کلید thumbnail UploadThing را اضافه می‌کند. Migrationهای قبلی Storage و سهمیه برای تاریخچهٔ schema باقی می‌مانند. ردیف‌های قدیمی که `video_url` ندارند در stream پاسخ ۴۰۴ می‌گیرند و فایل‌هایشان خودکار منتقل نمی‌شوند.
 
 Proxy فقط روی `/upload` و `/settings` اجرا می‌شود؛ feed و watch عمومی‌اند. فونت رابط Vazirmatn است. `npm test`، `npm run lint` و `npm run build` در GitHub Actions بررسی می‌شوند.
 
@@ -49,9 +41,7 @@ Proxy فقط روی `/upload` و `/settings` اجرا می‌شود؛ feed و wa
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | مرورگر و سرور |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | مرورگر و سرور |
-| `SUPABASE_SECRET_KEY` | فقط سرور؛ هرگز در مرورگر یا Git قرار نگیرد |
-| `SUPABASE_SERVICE_ROLE_KEY` | JWT قدیمی `service_role` برای عملیات Storage؛ فقط سرور و هرگز در Git قرار نگیرد |
-| `SUPABASE_STORAGE_BUCKET` | اختیاری؛ پیش‌فرض `videos` |
-| `CRON_SECRET` | فقط سرور/Vercel؛ محافظت از endpoint پاکسازی |
+| `SUPABASE_SECRET_KEY` | فقط سرور برای دسترسی admin به دیتابیس؛ هرگز در مرورگر یا Git قرار نگیرد |
+| `UPLOADTHING_TOKEN` | توکن V7 از UploadThing API Keys؛ فقط سرور و هرگز در مرورگر یا Git قرار نگیرد |
 
 نمونهٔ نام‌ها در `.env.example` آمده است. مقادیر واقعی را در `.env.local` و Environment Variables پروژهٔ Vercel نگه دارید.
